@@ -33,7 +33,12 @@ const TestAccounts: React.FC = () => {
         }
       });
       
-      if (adminError) throw adminError;
+      if (adminError) {
+        console.error("Admin creation error:", adminError);
+        throw adminError;
+      }
+      
+      console.log("Admin created:", adminData);
       
       // 2. Create Fire Inspector Account
       const inspectorEmail = `inspector-${Date.now()}@example.com`;
@@ -52,7 +57,12 @@ const TestAccounts: React.FC = () => {
         }
       });
       
-      if (inspectorError) throw inspectorError;
+      if (inspectorError) {
+        console.error("Inspector creation error:", inspectorError);
+        throw inspectorError;
+      }
+      
+      console.log("Inspector created:", inspectorData);
       
       // 3. Create Establishment Owner Account
       const ownerEmail = `owner-${Date.now()}@example.com`;
@@ -71,7 +81,12 @@ const TestAccounts: React.FC = () => {
         }
       });
       
-      if (ownerError) throw ownerError;
+      if (ownerError) {
+        console.error("Owner creation error:", ownerError);
+        throw ownerError;
+      }
+      
+      console.log("Owner created:", ownerData);
       
       // 4. Create a sample establishment for the owner
       if (ownerData.user) {
@@ -84,7 +99,12 @@ const TestAccounts: React.FC = () => {
             status: 'registered'
           });
         
-        if (estError) throw estError;
+        if (estError) {
+          console.error("Establishment creation error:", estError);
+          throw estError;
+        }
+        
+        console.log("Establishment created for owner:", ownerData.user.id);
       }
       
       // Show success message and store the created accounts

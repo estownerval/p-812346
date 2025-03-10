@@ -18,10 +18,13 @@ export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(
 
     const inputType = showPasswordToggle && showPassword ? "text" : type;
 
+    // Extract "required" to handle it separately
+    const { required, ...restProps } = props;
+    
     return (
       <div className="mb-[30px]">
         <div className="text-black text-xl font-semibold mb-1.5 max-sm:text-base">
-          {label}
+          {label} {required && <span className="text-red-500">*</span>}
         </div>
         <div className="relative w-full">
           <img
@@ -39,7 +42,8 @@ export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(
               "focus:outline-none focus:ring-2 focus:ring-[#FE623F] focus:ring-opacity-50",
               className,
             )}
-            {...props}
+            {...restProps}
+            required={required}
           />
           {showPasswordToggle && (
             <img
