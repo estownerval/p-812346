@@ -12,7 +12,12 @@ interface LoginFormData {
 }
 
 export const LoginCard: React.FC = () => {
-  const { register, handleSubmit, formState: { errors } } = useForm<LoginFormData>();
+  const { register, handleSubmit, formState: { errors } } = useForm<LoginFormData>({
+    defaultValues: {
+      email: "",
+      password: ""
+    }
+  });
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
