@@ -17,7 +17,7 @@ const TestAccounts: React.FC = () => {
     
     try {
       // 1. Create Admin Account
-      const adminEmail = `admin-${Date.now()}@example.com`;
+      const adminEmail = `admin@example.com`;
       const adminPassword = "password123";
       
       const { data: adminData, error: adminError } = await supabase.auth.signUp({
@@ -41,7 +41,7 @@ const TestAccounts: React.FC = () => {
       console.log("Admin created:", adminData);
       
       // 2. Create Fire Inspector Account
-      const inspectorEmail = `inspector-${Date.now()}@example.com`;
+      const inspectorEmail = `inspector@example.com`;
       const inspectorPassword = "password123";
       
       const { data: inspectorData, error: inspectorError } = await supabase.auth.signUp({
@@ -65,7 +65,7 @@ const TestAccounts: React.FC = () => {
       console.log("Inspector created:", inspectorData);
       
       // 3. Create Establishment Owner Account
-      const ownerEmail = `owner-${Date.now()}@example.com`;
+      const ownerEmail = `owner@example.com`;
       const ownerPassword = "password123";
       
       const { data: ownerData, error: ownerError } = await supabase.auth.signUp({
