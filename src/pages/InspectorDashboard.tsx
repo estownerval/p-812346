@@ -4,7 +4,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
-import { Json } from "@/integrations/supabase/types";
 
 interface AssignedInspection {
   id: string;
@@ -125,7 +124,8 @@ const InspectorDashboard: React.FC = () => {
         inspection_date,
         inspection_time,
         status,
-        establishments(name, owner_id)
+        establishments(name, owner_id),
+        profiles(first_name, last_name)
       `)
       .eq('inspector_id', inspectorId);
       
@@ -137,7 +137,8 @@ const InspectorDashboard: React.FC = () => {
         inspection_date,
         inspection_time,
         status,
-        establishments(name, owner_id)
+        establishments(name, owner_id),
+        profiles(first_name, last_name)
       `)
       .eq('inspector_id', inspectorId);
     
@@ -151,65 +152,29 @@ const InspectorDashboard: React.FC = () => {
       return;
     }
     
-    // Fetch owner profiles separately
-    const ownerProfiles: Record<string, string> = {};
+    const formattedBusinessApps = businessApps ? businessApps.map((app, index) => ({
+      id: app.id,
+      inspectionId: index + 1,
+      establishmentName: app.establishments?.name || "Unknown",
+      owner: `${app.profiles?.first_name || ""} ${app.profiles?.last_name || ""}`,
+      inspectionDate: app.inspection_date || "Not scheduled",
+      inspectionTime: app.inspection_time || "Not scheduled",
+      status: app.status as 'for_inspection' | 'inspected',
+      applicationId: app.id,
+      applicationType: 'fsic_business'
+    })) : [];
     
-    if (businessApps?.length || occupancyApps?.length) {
-      const ownerIds = new Set<string>();
-      
-      // Collect all owner IDs
-      businessApps?.forEach(app => {
-        if (app.establishments?.owner_id) ownerIds.add(app.establishments.owner_id);
-      });
-      
-      occupancyApps?.forEach(app => {
-        if (app.establishments?.owner_id) ownerIds.add(app.establishments.owner_id);
-      });
-      
-      // Fetch all profiles at once
-      if (ownerIds.size > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, first_name, last_name')
-          .in('id', Array.from(ownerIds));
-          
-        if (profiles) {
-          profiles.forEach(profile => {
-            ownerProfiles[profile.id] = `${profile.first_name} ${profile.last_name}`;
-          });
-        }
-      }
-    }
-    
-    const formattedBusinessApps = businessApps ? businessApps.map((app, index) => {
-      const ownerId = app.establishments?.owner_id || "";
-      return {
-        id: app.id,
-        inspectionId: index + 1,
-        establishmentName: app.establishments?.name || "Unknown",
-        owner: ownerProfiles[ownerId] || "Unknown",
-        inspectionDate: app.inspection_date || "Not scheduled",
-        inspectionTime: app.inspection_time || "Not scheduled",
-        status: app.status as 'for_inspection' | 'inspected',
-        applicationId: app.id,
-        applicationType: 'fsic_business'
-      };
-    }) : [];
-    
-    const formattedOccupancyApps = occupancyApps ? occupancyApps.map((app, index) => {
-      const ownerId = app.establishments?.owner_id || "";
-      return {
-        id: app.id,
-        inspectionId: formattedBusinessApps.length + index + 1,
-        establishmentName: app.establishments?.name || "Unknown",
-        owner: ownerProfiles[ownerId] || "Unknown",
-        inspectionDate: app.inspection_date || "Not scheduled",
-        inspectionTime: app.inspection_time || "Not scheduled",
-        status: app.status as 'for_inspection' | 'inspected',
-        applicationId: app.id,
-        applicationType: 'fsic_occupancy'
-      };
-    }) : [];
+    const formattedOccupancyApps = occupancyApps ? occupancyApps.map((app, index) => ({
+      id: app.id,
+      inspectionId: formattedBusinessApps.length + index + 1,
+      establishmentName: app.establishments?.name || "Unknown",
+      owner: `${app.profiles?.first_name || ""} ${app.profiles?.last_name || ""}`,
+      inspectionDate: app.inspection_date || "Not scheduled",
+      inspectionTime: app.inspection_time || "Not scheduled",
+      status: app.status as 'for_inspection' | 'inspected',
+      applicationId: app.id,
+      applicationType: 'fsic_occupancy'
+    })) : [];
     
     setAssignedInspections([...formattedBusinessApps, ...formattedOccupancyApps]);
     setLoading(false);
@@ -369,7 +334,7 @@ const InspectorDashboard: React.FC = () => {
         checklist_data: {
           sections: checklistData.sections,
           comments: checklistData.comments
-        } as unknown as Json,
+        },
         images: uploadedImageUrls,
       };
       
