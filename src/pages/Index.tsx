@@ -1,7 +1,6 @@
 
 import React from "react";
 import { Link } from "react-router-dom";
-import TestAccounts from "@/components/TestAccounts";
 
 const Index = () => {
   return (
@@ -46,10 +45,6 @@ const Index = () => {
               </Link>
             </div>
           </div>
-        </div>
-        
-        <div className="mt-10 w-full max-w-[605px]">
-          <TestAccounts />
         </div>
       </main>
     </>
