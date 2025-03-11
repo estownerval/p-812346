@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -135,7 +136,7 @@ const AdminHome = () => {
       ];
       setInspectorStats(mockInspectorStats);
 
-      // Mock recent applications
+      // Mock recent applications - Fix the 'inspector' property to 'inspector_id'
       const mockRecentApplications: Application[] = [
         {
           id: '1',
@@ -237,6 +238,7 @@ const AdminHome = () => {
   };
 
   const getStatusBadge = (status: string) => {
+    // Fix the type for the variant to include only allowed types
     let variant: "default" | "secondary" | "outline" | "destructive" = "default";
     
     switch (status) {

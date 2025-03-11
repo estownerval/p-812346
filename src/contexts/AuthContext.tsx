@@ -47,10 +47,13 @@ interface AuthContextType {
   createInspectorAccount: (inspectorData: any) => Promise<void>;
   getInspectors: () => Promise<any[]>;
   getOwners: () => Promise<any[]>;
+  getProfiles: () => Promise<any[]>;
   updateApplication: (id: string, data: any) => Promise<void>;
   getApplication: (id: string) => Promise<Application | null>;
   getInspections: () => Promise<any[]>;
   submitInspectionChecklist: (data: any) => Promise<void>;
+  getOwnedEstablishments: () => Promise<any[]>;
+  getApplicationsByOwner: () => Promise<Application[]>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -69,7 +72,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (session?.user) {
           setUser(session.user);
           
-          // Fetch user profile
           const { data: profileData, error: profileError } = await supabase
             .from('profiles')
             .select('*')
@@ -91,13 +93,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     fetchUser();
 
-    // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (session?.user) {
           setUser(session.user);
           
-          // Fetch user profile
           const { data: profileData, error: profileError } = await supabase
             .from('profiles')
             .select('*')
@@ -126,17 +126,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setIsLoading(true);
     
     try {
-      // Register the user with Supabase Auth
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          // Pass additional user data to the metadata
           data: {
             first_name: userData.firstName,
             middle_name: userData.middleName || null,
             last_name: userData.lastName,
-            role: 'owner', // Default role for signup
+            role: 'owner',
           },
         }
       });
@@ -145,7 +143,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw error;
       }
 
-      // Create establishments for the user
       if (data.user && userData.establishments && userData.establishments.length > 0) {
         const establishmentPromises = userData.establishments.map((est: any) => {
           return supabase.from('establishments').insert({
@@ -161,7 +158,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       toast.success('Account created successfully! You can now log in.');
       
-      // Redirect to login (user needs to verify email if that's enabled)
       navigate('/login/owner');
     } catch (error: any) {
       toast.error(`Error during signup: ${error.message}`);
@@ -184,7 +180,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       if (data.user) {
-        // Fetch user profile to determine role
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
@@ -195,7 +190,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           throw profileError;
         }
 
-        // Redirect based on role
         const role = profileData.role;
         toast.success('Login successful!');
         
@@ -250,7 +244,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       let query = supabase.from('establishments').select('*');
       
-      // If user is owner, filter by owner_id
       if (profile?.role === 'owner') {
         query = query.eq('owner_id', user.id);
       }
@@ -291,7 +284,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       if (!user) throw new Error('User not authenticated');
       
-      // Insert the application
       const { data: applicationData, error } = await supabase
         .from('applications')
         .insert({
@@ -306,24 +298,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (error) throw error;
       
-      // Upload documents if provided
       if (data.documents && data.documents.length > 0) {
         for (const doc of data.documents) {
           const fileName = `${user.id}/${applicationData.id}/${Date.now()}_${doc.name}`;
           
-          // Upload to storage
           const { error: uploadError } = await supabase.storage
             .from('documents')
             .upload(fileName, doc.file);
 
           if (uploadError) throw uploadError;
           
-          // Get public URL
           const { data: publicUrlData } = supabase.storage
             .from('documents')
             .getPublicUrl(fileName);
           
-          // Save document reference
           const { error: docError } = await supabase
             .from('application_documents')
             .insert({
@@ -355,7 +343,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           inspector:profiles(*)
         `);
       
-      // If user is owner, filter by owner's establishments
       if (profile?.role === 'owner') {
         const { data: establishments } = await supabase
           .from('establishments')
@@ -366,11 +353,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const establishmentIds = establishments.map(e => e.id);
           query = query.in('establishment_id', establishmentIds);
         } else {
-          return []; // No establishments, so no applications
+          return [];
         }
       }
       
-      // If user is inspector, filter by inspector_id
       if (profile?.role === 'inspector') {
         query = query.eq('inspector_id', user.id);
       }
@@ -390,7 +376,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       if (!user || profile?.role !== 'admin') throw new Error('Not authorized');
       
-      // Register the user with Supabase Auth
       const { data, error } = await supabase.auth.admin.createUser({
         email: inspectorData.email,
         password: inspectorData.password,
@@ -449,6 +434,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const getProfiles = async () => {
+    try {
+      if (!user || profile?.role !== 'admin') throw new Error('Not authorized');
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*');
+
+      if (error) throw error;
+      
+      return data || [];
+    } catch (error: any) {
+      toast.error(`Error fetching profiles: ${error.message}`);
+      return [];
+    }
+  };
+
   const updateApplication = async (id: string, data: any) => {
     try {
       if (!user) throw new Error('User not authenticated');
@@ -503,7 +505,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         `)
         .in('status', ['for_inspection', 'inspected']);
       
-      // If user is inspector, filter by inspector_id
       if (profile?.role === 'inspector') {
         query = query.eq('inspector_id', user.id);
       }
@@ -523,7 +524,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       if (!user || profile?.role !== 'inspector') throw new Error('Not authorized');
       
-      // Create checklist
       const { data: checklist, error } = await supabase
         .from('inspection_checklists')
         .insert({
@@ -538,22 +538,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (error) throw error;
       
-      // Upload checklist items
       if (data.items && data.items.length > 0) {
         for (const item of data.items) {
-          // Upload image if provided
           let imagePath = null;
           if (item.image) {
             const fileName = `inspections/${checklist.id}/${Date.now()}_${item.image.name}`;
             
-            // Upload to storage
             const { error: uploadError } = await supabase.storage
               .from('documents')
               .upload(fileName, item.image);
 
             if (uploadError) throw uploadError;
             
-            // Get public URL
             const { data: publicUrlData } = supabase.storage
               .from('documents')
               .getPublicUrl(fileName);
@@ -561,7 +557,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             imagePath = publicUrlData.publicUrl;
           }
           
-          // Save checklist item
           const { error: itemError } = await supabase
             .from('checklist_items')
             .insert({
@@ -576,7 +571,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
       }
       
-      // Update application status
       const { error: updateError } = await supabase
         .from('applications')
         .update({ status: 'inspected' })
@@ -588,6 +582,57 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (error: any) {
       toast.error(`Error submitting inspection checklist: ${error.message}`);
       throw error;
+    }
+  };
+
+  const getOwnedEstablishments = async () => {
+    try {
+      if (!user) throw new Error('User not authenticated');
+      
+      const { data, error } = await supabase
+        .from('establishments')
+        .select('*')
+        .eq('owner_id', user.id);
+
+      if (error) throw error;
+      
+      return data || [];
+    } catch (error: any) {
+      toast.error(`Error fetching owned establishments: ${error.message}`);
+      return [];
+    }
+  };
+
+  const getApplicationsByOwner = async () => {
+    try {
+      if (!user) throw new Error('User not authenticated');
+      
+      const { data: establishments, error: estError } = await supabase
+        .from('establishments')
+        .select('id')
+        .eq('owner_id', user.id);
+      
+      if (estError) throw estError;
+      
+      if (!establishments || establishments.length === 0) {
+        return [];
+      }
+      
+      const establishmentIds = establishments.map(e => e.id);
+      const { data: applications, error: appError } = await supabase
+        .from('applications')
+        .select(`
+          *,
+          establishment:establishments(*)
+        `)
+        .in('establishment_id', establishmentIds);
+      
+      if (appError) throw appError;
+      
+      return applications || [];
+    } catch (error: any) {
+      toast.error(`Error fetching applications by owner: ${error.message}`);
+      return [];
     }
   };
 
@@ -608,10 +653,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         createInspectorAccount,
         getInspectors,
         getOwners,
+        getProfiles,
         updateApplication,
         getApplication,
         getInspections,
-        submitInspectionChecklist
+        submitInspectionChecklist,
+        getOwnedEstablishments,
+        getApplicationsByOwner
       }}
     >
       {children}

@@ -6,6 +6,24 @@ import { toast } from "sonner";
 export type ApplicationType = Database["public"]["Enums"]["application_type"];
 export type ApplicationStatus = Database["public"]["Enums"]["application_status"];
 
+// Add the getStatusColor function that is referenced in AdminHome.tsx
+export const getStatusColor = (status: string): string => {
+  switch (status) {
+    case "pending":
+      return "#FFBB28"; // Yellow
+    case "for_inspection":
+      return "#8884d8"; // Purple
+    case "inspected":
+      return "#00C49F"; // Teal
+    case "approved":
+      return "#00C49F"; // Green
+    case "rejected":
+      return "#e45f5a"; // Red
+    default:
+      return "#999999"; // Gray for unknown status
+  }
+};
+
 export const fetchApplications = async (type?: ApplicationType, status?: ApplicationStatus) => {
   try {
     let query = supabase

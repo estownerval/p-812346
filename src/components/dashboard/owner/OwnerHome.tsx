@@ -39,7 +39,7 @@ const OwnerHome = () => {
   const [recentApplications, setRecentApplications] = useState<Application[]>([]);
   const [upcomingInspections, setUpcomingInspections] = useState<Application[]>([]);
   
-  const { getOwnedEstablishments, getApplicationsByOwner } = useAuth();
+  const { getApplications, getEstablishments } = useAuth();
 
   useEffect(() => {
     fetchData();
@@ -49,6 +49,7 @@ const OwnerHome = () => {
     setIsLoading(true);
     try {
       // In a real app, fetch from Supabase
+      // For now we'll use mock data directly in this component
       // const establishmentsData = await getOwnedEstablishments();
       // const applicationsData = await getApplicationsByOwner();
       
