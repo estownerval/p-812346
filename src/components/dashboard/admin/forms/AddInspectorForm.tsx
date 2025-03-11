@@ -1,9 +1,11 @@
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { Loader2 } from "lucide-react";
 
 interface AddInspectorFormProps {
   onCancel: () => void;
@@ -11,95 +13,110 @@ interface AddInspectorFormProps {
 }
 
 const AddInspectorForm = ({ onCancel, onSuccess }: AddInspectorFormProps) => {
-  const [firstName, setFirstName] = useState("");
-  const [middleName, setMiddleName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [position, setPosition] = useState("");
+  const { createInspectorAccount } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    firstName: "",
+    middleName: "",
+    lastName: "",
+    email: "",
+    password: "",
+    position: ""
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handlePositionChange = (value: string) => {
+    setFormData(prev => ({ ...prev, position: value }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Basic validation
-    if (!firstName || !lastName || !email || !password || !position) {
-      return;
-    }
-    
     setIsLoading(true);
     
     try {
-      // In a real application, this would be an API call to create the user
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await createInspectorAccount(formData);
       onSuccess();
     } catch (error) {
-      console.error(error);
+      console.error("Error creating inspector account:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="firstName">First Name <span className="text-red-500">*</span></Label>
+          <Label htmlFor="firstName">First Name *</Label>
           <Input
             id="firstName"
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
+            name="firstName"
+            value={formData.firstName}
+            onChange={handleChange}
             required
           />
         </div>
+        
         <div className="space-y-2">
           <Label htmlFor="middleName">Middle Name (Optional)</Label>
           <Input
             id="middleName"
-            value={middleName}
-            onChange={(e) => setMiddleName(e.target.value)}
+            name="middleName"
+            value={formData.middleName}
+            onChange={handleChange}
           />
         </div>
+        
         <div className="space-y-2">
-          <Label htmlFor="lastName">Last Name <span className="text-red-500">*</span></Label>
+          <Label htmlFor="lastName">Last Name *</Label>
           <Input
             id="lastName"
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
+            name="lastName"
+            value={formData.lastName}
+            onChange={handleChange}
             required
           />
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <div className="space-y-2">
-          <Label htmlFor="email">Email <span className="text-red-500">*</span></Label>
-          <Input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="password">Password <span className="text-red-500">*</span></Label>
-          <Input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="email">Email *</Label>
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          value={formData.email}
+          onChange={handleChange}
+          required
+        />
       </div>
       
-      <div className="mb-6">
-        <Label htmlFor="position">Position <span className="text-red-500">*</span></Label>
-        <Select value={position} onValueChange={setPosition} required>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select a position" />
+      <div className="space-y-2">
+        <Label htmlFor="password">Password *</Label>
+        <Input
+          id="password"
+          name="password"
+          type="password"
+          value={formData.password}
+          onChange={handleChange}
+          required
+          minLength={8}
+        />
+      </div>
+      
+      <div className="space-y-2">
+        <Label htmlFor="position">Position *</Label>
+        <Select 
+          value={formData.position} 
+          onValueChange={handlePositionChange}
+          required
+        >
+          <SelectTrigger id="position">
+            <SelectValue placeholder="Select position" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="FS01">FS01</SelectItem>
@@ -111,20 +128,19 @@ const AddInspectorForm = ({ onCancel, onSuccess }: AddInspectorFormProps) => {
         </Select>
       </div>
       
-      <div className="flex justify-end gap-2">
-        <Button 
-          type="button" 
-          variant="outline" 
-          onClick={onCancel}
-        >
+      <div className="flex justify-end space-x-2 pt-4">
+        <Button variant="outline" type="button" onClick={onCancel}>
           Cancel
         </Button>
-        <Button 
-          type="submit"
-          className="bg-fire hover:bg-fire/90"
-          disabled={isLoading}
-        >
-          {isLoading ? "Creating Account..." : "Register Account"}
+        <Button type="submit" disabled={isLoading}>
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Creating Account
+            </>
+          ) : (
+            <>Register Inspector Account</>
+          )}
         </Button>
       </div>
     </form>

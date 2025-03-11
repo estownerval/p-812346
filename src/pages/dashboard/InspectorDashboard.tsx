@@ -8,10 +8,10 @@ import InspectorHome from "@/components/dashboard/inspector/InspectorHome";
 import InspectorInspections from "@/components/dashboard/inspector/InspectorInspections";
 import InspectorSettings from "@/components/dashboard/inspector/InspectorSettings";
 
-// Placeholder components for routes we'll implement later
-const Analytics = () => <div className="p-6">Analytics (Coming Soon)</div>;
-const Calendar = () => <div className="p-6">Calendar (Coming Soon)</div>;
-const Map = () => <div className="p-6">Map (Coming Soon)</div>;
+// Shared components
+import Analytics from "@/components/dashboard/Analytics";
+import Calendar from "@/components/dashboard/Calendar";
+import Map from "@/components/dashboard/Map";
 
 const InspectorDashboard = () => {
   return (
