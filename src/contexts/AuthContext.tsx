@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -273,7 +274,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { error } = await supabase
         .from('establishments')
         .update({
-          status: 'registered',
+          status: 'registered', // Changed from 'pending' to 'registered' to match the enum
           address
         })
         .eq('id', id);
