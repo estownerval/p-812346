@@ -9,10 +9,10 @@ import OwnerEstablishments from "@/components/dashboard/owner/OwnerEstablishment
 import OwnerApplications from "@/components/dashboard/owner/OwnerApplications";
 import OwnerSettings from "@/components/dashboard/owner/OwnerSettings";
 
-// Placeholder components for routes we'll implement later
-const Analytics = () => <div className="p-6">Analytics (Coming Soon)</div>;
-const Calendar = () => <div className="p-6">Calendar (Coming Soon)</div>;
-const Map = () => <div className="p-6">Map (Coming Soon)</div>;
+// Shared components
+import Analytics from "@/components/dashboard/Analytics";
+import Calendar from "@/components/dashboard/Calendar";
+import Map from "@/components/dashboard/Map";
 
 const OwnerDashboard = () => {
   return (
