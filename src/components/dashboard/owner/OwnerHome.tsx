@@ -1,109 +1,32 @@
-import { useEffect, useState } from "react";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Building, FileText, AlertCircle, Plus, Loader2 } from "lucide-react";
+import { Building, FileText, AlertCircle, Plus } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "sonner";
-
-interface Establishment {
-  id: string;
-  name: string;
-  dti_number: string;
-  status: "registered" | "unregistered" | "rejected";
-  address?: string;
-}
-
-interface Application {
-  id: string;
-  establishment_id: string;
-  application_type: string;
-  status: string;
-  application_date: string;
-  application_time: string;
-  inspector_id?: string;
-  inspection_date?: string;
-  inspection_time?: string;
-  rejection_reason?: string;
-  priority?: boolean;
-  establishment?: Establishment;
-}
 
 const OwnerHome = () => {
-  const { getEstablishments, getApplications } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
-  const [stats, setStats] = useState([
-    { title: "Registered Establishments", value: 0, icon: Building, change: "0 establishments" },
-    { title: "Applications", value: 0, icon: FileText, change: "No applications" },
-    { title: "Requiring Attention", value: 0, icon: AlertCircle, change: "No issues", urgent: false },
-  ]);
-  const [establishments, setEstablishments] = useState<Establishment[]>([]);
-  const [applications, setApplications] = useState<Application[]>([]);
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
-    setIsLoading(true);
-    try {
-      const establishmentsData = await getEstablishments();
-      setEstablishments(establishmentsData);
-      
-      const applicationsData = await getApplications();
-      
-      const processedApplications = applicationsData.map(app => ({
-        ...app
-      }));
-      
-      setApplications(processedApplications);
-      
-      const registeredCount = establishmentsData.filter(est => est.status === "registered").length;
-      const unregisteredCount = establishmentsData.filter(est => est.status === "unregistered").length;
-      
-      const pendingApps = applicationsData.filter(app => app.status === "pending").length;
-      const approvedApps = applicationsData.filter(app => app.status === "approved").length;
-      const rejectedApps = applicationsData.filter(app => app.status === "rejected").length;
-      const forInspectionApps = applicationsData.filter(app => app.status === "for_inspection").length;
-      
-      const requireAttention = rejectedApps + unregisteredCount;
-      
-      setStats([
-        { 
-          title: "Registered Establishments", 
-          value: registeredCount, 
-          icon: Building, 
-          change: `${registeredCount} registered, ${unregisteredCount} unregistered` 
-        },
-        { 
-          title: "Applications", 
-          value: applicationsData.length, 
-          icon: FileText, 
-          change: `${pendingApps} pending, ${approvedApps} approved, ${forInspectionApps} for inspection` 
-        },
-        { 
-          title: "Requiring Attention", 
-          value: requireAttention, 
-          icon: AlertCircle, 
-          change: requireAttention > 0 ? "Action needed" : "No issues", 
-          urgent: requireAttention > 0 
-        },
-      ]);
-    } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-      toast.error("Failed to load dashboard data");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Mock data - would be from Supabase in a real application
+  const stats = [
+    { title: "Registered Establishments", value: 1, icon: Building, change: "1 approved, 1 pending" },
+    { title: "Applications", value: 3, icon: FileText, change: "2 pending, 1 approved" },
+    { title: "Requiring Attention", value: 1, icon: AlertCircle, change: "Action needed", urgent: true },
+  ];
   
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-fire" />
-      </div>
-    );
-  }
+  // Establishment cards
+  const establishments = [
+    {
+      id: 1,
+      name: "ABC Restaurant",
+      dtiNumber: "DTI-123456",
+      status: "Registered",
+    },
+    {
+      id: 2,
+      name: "XYZ Cafe",
+      dtiNumber: "DTI-789012",
+      status: "Unregistered",
+    },
+  ];
   
   return (
     <div className="space-y-6">
@@ -144,74 +67,42 @@ const OwnerHome = () => {
         </div>
         
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {establishments.length > 0 ? establishments.map((est) => (
+          {establishments.map((est) => (
             <Card key={est.id}>
               <CardHeader>
                 <CardTitle className="text-xl">{est.name}</CardTitle>
-                <CardDescription>DTI: {est.dti_number}</CardDescription>
+                <CardDescription>DTI: {est.dtiNumber}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-center">
                   <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
-                    est.status === 'registered' 
+                    est.status === 'Registered' 
                       ? 'bg-green-50 text-green-600 border-green-200'
-                      : est.status === 'rejected'
-                      ? 'bg-red-50 text-red-600 border-red-200'
                       : 'bg-yellow-50 text-yellow-600 border-yellow-200'
                   }`}>
-                    {est.status === 'registered' 
-                      ? 'Registered' 
-                      : est.status === 'rejected'
-                      ? 'Registration Rejected'
-                      : 'Unregistered'}
+                    {est.status}
                   </span>
                 </div>
-                {est.address && (
-                  <p className="text-xs text-muted-foreground">
-                    {est.address}
-                  </p>
-                )}
                 
-                {est.status === 'registered' ? (
+                {est.status === 'Registered' ? (
                   <div className="grid grid-cols-2 gap-2">
-                    <Button variant="outline" size="sm" asChild>
-                      <Link to={`/dashboard/owner/establishments/${est.id}`}>
-                        View Details
-                      </Link>
+                    <Button variant="outline" size="sm">
+                      View Details
                     </Button>
-                    <Link to={`/dashboard/owner/applications/new/${est.id}`}>
+                    <Link to="/dashboard/owner/applications/new">
                       <Button className="bg-fire hover:bg-fire/90 w-full" size="sm">
                         Apply for Certification
                       </Button>
                     </Link>
                   </div>
                 ) : (
-                  <Button 
-                    className="w-full bg-fire hover:bg-fire/90" 
-                    size="sm"
-                    asChild
-                  >
-                    <Link to={`/dashboard/owner/establishments`}>
-                      Register Establishment
-                    </Link>
+                  <Button className="w-full bg-fire hover:bg-fire/90" size="sm">
+                    Register Establishment
                   </Button>
                 )}
               </CardContent>
             </Card>
-          )) : (
-            <div className="col-span-full text-center py-12">
-              <Building className="mx-auto h-12 w-12 text-muted-foreground/50" />
-              <h3 className="mt-2 text-lg font-medium">No establishments yet</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Add your first establishment to get started.
-              </p>
-              <Link to="/dashboard/owner/establishments/add">
-                <Button className="mt-4">
-                  <Plus className="mr-2 h-4 w-4" /> Add Establishment
-                </Button>
-              </Link>
-            </div>
-          )}
+          ))}
         </div>
       </div>
       
@@ -232,51 +123,32 @@ const OwnerHome = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {applications.length > 0 ? (
-                    applications.slice(0, 5).map((app) => (
-                      <tr key={app.id} className="border-b transition-colors hover:bg-muted/50">
-                        <td className="p-4 align-middle">{app.application_type.toUpperCase()}</td>
-                        <td className="p-4 align-middle">{app.establishment?.name || "Unknown"}</td>
-                        <td className="p-4 align-middle">{new Date(app.application_date).toLocaleDateString()}</td>
-                        <td className="p-4 align-middle">
-                          <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
-                            app.status === 'approved' 
-                              ? 'bg-green-50 text-green-600 border-green-200'
-                              : app.status === 'rejected'
-                              ? 'bg-red-50 text-red-600 border-red-200'
-                              : app.status === 'for_inspection'
-                              ? 'bg-blue-50 text-blue-600 border-blue-200'
-                              : app.status === 'inspected'
-                              ? 'bg-purple-50 text-purple-600 border-purple-200'
-                              : 'bg-yellow-50 text-yellow-600 border-yellow-200'
-                          }`}>
-                            {app.status === 'approved' 
-                              ? 'Approved' 
-                              : app.status === 'rejected'
-                              ? 'Rejected'
-                              : app.status === 'for_inspection'
-                              ? 'For Inspection'
-                              : app.status === 'inspected'
-                              ? 'Inspected'
-                              : 'Pending'}
-                          </span>
-                        </td>
-                        <td className="p-4 align-middle">
-                          <Button variant="outline" size="sm" asChild>
-                            <Link to={`/dashboard/owner/applications/${app.id}`}>
-                              View
-                            </Link>
-                          </Button>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={5} className="p-4 text-center text-muted-foreground">
-                        No applications found
-                      </td>
-                    </tr>
-                  )}
+                  <tr className="border-b transition-colors hover:bg-muted/50">
+                    <td className="p-4 align-middle">FSEC</td>
+                    <td className="p-4 align-middle">ABC Restaurant</td>
+                    <td className="p-4 align-middle">May 15, 2023</td>
+                    <td className="p-4 align-middle">
+                      <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-yellow-50 text-yellow-600">
+                        Pending
+                      </span>
+                    </td>
+                    <td className="p-4 align-middle">
+                      <Button variant="outline" size="sm">View</Button>
+                    </td>
+                  </tr>
+                  <tr className="border-b transition-colors hover:bg-muted/50">
+                    <td className="p-4 align-middle">FSIC (Business)</td>
+                    <td className="p-4 align-middle">ABC Restaurant</td>
+                    <td className="p-4 align-middle">May 10, 2023</td>
+                    <td className="p-4 align-middle">
+                      <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-blue-50 text-blue-600">
+                        For Inspection
+                      </span>
+                    </td>
+                    <td className="p-4 align-middle">
+                      <Button variant="outline" size="sm">View</Button>
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </div>
