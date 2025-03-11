@@ -10,10 +10,10 @@ import AdminEstablishments from "@/components/dashboard/admin/AdminEstablishment
 import AdminApplications from "@/components/dashboard/admin/AdminApplications";
 import AdminSettings from "@/components/dashboard/admin/AdminSettings";
 
-// Shared components
-import Analytics from "@/components/dashboard/Analytics";
-import Calendar from "@/components/dashboard/Calendar";
-import Map from "@/components/dashboard/Map";
+// Placeholder components for routes we'll implement later
+const Analytics = () => <div className="p-6">Analytics (Coming Soon)</div>;
+const Calendar = () => <div className="p-6">Calendar (Coming Soon)</div>;
+const Map = () => <div className="p-6">Map (Coming Soon)</div>;
 
 const AdminDashboard = () => {
   return (

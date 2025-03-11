@@ -1,11 +1,10 @@
+
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Database } from "@/integrations/supabase/types";
 
 export type UserRole = "admin" | "inspector" | "owner";
-export type ApplicationType = Database["public"]["Enums"]["application_type"];
 
 export interface UserProfile {
   id: string;
@@ -15,21 +14,6 @@ export interface UserProfile {
   email: string;
   role: UserRole;
   position?: string;
-}
-
-export interface Application {
-  id: string;
-  establishment_id: string;
-  application_type: ApplicationType;
-  status: string;
-  application_date: string;
-  application_time: string;
-  inspector_id?: string;
-  inspection_date?: string;
-  inspection_time?: string;
-  rejection_reason?: string;
-  priority?: boolean;
-  establishment?: any;
 }
 
 interface AuthContextType {
@@ -43,14 +27,7 @@ interface AuthContextType {
   getEstablishments: () => Promise<any[]>;
   registerEstablishment: (id: string, address: string) => Promise<void>;
   submitApplication: (data: any) => Promise<void>;
-  getApplications: () => Promise<Application[]>;
-  createInspectorAccount: (inspectorData: any) => Promise<void>;
-  getInspectors: () => Promise<any[]>;
-  getOwners: () => Promise<any[]>;
-  updateApplication: (id: string, data: any) => Promise<void>;
-  getApplication: (id: string) => Promise<Application | null>;
-  getInspections: () => Promise<any[]>;
-  submitInspectionChecklist: (data: any) => Promise<void>;
+  getApplications: () => Promise<any[]>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -248,14 +225,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       if (!user) throw new Error('User not authenticated');
       
-      let query = supabase.from('establishments').select('*');
-      
-      // If user is owner, filter by owner_id
-      if (profile?.role === 'owner') {
-        query = query.eq('owner_id', user.id);
-      }
-      
-      const { data, error } = await query;
+      const { data, error } = await supabase
+        .from('establishments')
+        .select('*')
+        .eq('owner_id', user.id);
 
       if (error) throw error;
       
@@ -273,10 +246,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { error } = await supabase
         .from('establishments')
         .update({
-          status: 'registered',
+          status: 'pending',
           address
         })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('owner_id', user.id);
 
       if (error) throw error;
       
@@ -297,9 +271,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .insert({
           establishment_id: data.establishmentId,
           application_type: data.applicationType,
-          status: 'pending',
-          application_date: new Date().toISOString().split('T')[0],
-          application_time: new Date().toLocaleTimeString()
+          status: 'pending'
         })
         .select()
         .single();
@@ -347,35 +319,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       if (!user) throw new Error('User not authenticated');
       
-      let query = supabase
+      const { data, error } = await supabase
         .from('applications')
         .select(`
           *,
-          establishment:establishments(*),
-          inspector:profiles(*)
-        `);
-      
-      // If user is owner, filter by owner's establishments
-      if (profile?.role === 'owner') {
-        const { data: establishments } = await supabase
-          .from('establishments')
-          .select('id')
-          .eq('owner_id', user.id);
-        
-        if (establishments && establishments.length > 0) {
-          const establishmentIds = establishments.map(e => e.id);
-          query = query.in('establishment_id', establishmentIds);
-        } else {
-          return []; // No establishments, so no applications
-        }
-      }
-      
-      // If user is inspector, filter by inspector_id
-      if (profile?.role === 'inspector') {
-        query = query.eq('inspector_id', user.id);
-      }
-      
-      const { data, error } = await query;
+          establishment:establishments(*)
+        `)
+        .eq('establishment.owner_id', user.id);
 
       if (error) throw error;
       
@@ -383,211 +333,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (error: any) {
       toast.error(`Error fetching applications: ${error.message}`);
       return [];
-    }
-  };
-
-  const createInspectorAccount = async (inspectorData: any) => {
-    try {
-      if (!user || profile?.role !== 'admin') throw new Error('Not authorized');
-      
-      // Register the user with Supabase Auth
-      const { data, error } = await supabase.auth.admin.createUser({
-        email: inspectorData.email,
-        password: inspectorData.password,
-        email_confirm: true,
-        user_metadata: {
-          first_name: inspectorData.firstName,
-          middle_name: inspectorData.middleName || null,
-          last_name: inspectorData.lastName,
-          role: 'inspector',
-          position: inspectorData.position
-        }
-      });
-
-      if (error) throw error;
-      
-      toast.success('Inspector account created successfully');
-    } catch (error: any) {
-      toast.error(`Error creating inspector account: ${error.message}`);
-      throw error;
-    }
-  };
-
-  const getInspectors = async () => {
-    try {
-      if (!user || profile?.role !== 'admin') throw new Error('Not authorized');
-      
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('role', 'inspector');
-
-      if (error) throw error;
-      
-      return data || [];
-    } catch (error: any) {
-      toast.error(`Error fetching inspectors: ${error.message}`);
-      return [];
-    }
-  };
-
-  const getOwners = async () => {
-    try {
-      if (!user || profile?.role !== 'admin') throw new Error('Not authorized');
-      
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('role', 'owner');
-
-      if (error) throw error;
-      
-      return data || [];
-    } catch (error: any) {
-      toast.error(`Error fetching owners: ${error.message}`);
-      return [];
-    }
-  };
-
-  const updateApplication = async (id: string, data: any) => {
-    try {
-      if (!user) throw new Error('User not authenticated');
-      
-      const { error } = await supabase
-        .from('applications')
-        .update(data)
-        .eq('id', id);
-
-      if (error) throw error;
-      
-      toast.success('Application updated successfully');
-    } catch (error: any) {
-      toast.error(`Error updating application: ${error.message}`);
-      throw error;
-    }
-  };
-
-  const getApplication = async (id: string) => {
-    try {
-      if (!user) throw new Error('User not authenticated');
-      
-      const { data, error } = await supabase
-        .from('applications')
-        .select(`
-          *,
-          establishment:establishments(*),
-          inspector:profiles(*)
-        `)
-        .eq('id', id)
-        .single();
-
-      if (error) throw error;
-      
-      return data;
-    } catch (error: any) {
-      toast.error(`Error fetching application: ${error.message}`);
-      return null;
-    }
-  };
-
-  const getInspections = async () => {
-    try {
-      if (!user) throw new Error('User not authenticated');
-      
-      let query = supabase
-        .from('applications')
-        .select(`
-          *,
-          establishment:establishments(*),
-          inspector:profiles(*)
-        `)
-        .in('status', ['for_inspection', 'inspected']);
-      
-      // If user is inspector, filter by inspector_id
-      if (profile?.role === 'inspector') {
-        query = query.eq('inspector_id', user.id);
-      }
-      
-      const { data, error } = await query;
-
-      if (error) throw error;
-      
-      return data || [];
-    } catch (error: any) {
-      toast.error(`Error fetching inspections: ${error.message}`);
-      return [];
-    }
-  };
-
-  const submitInspectionChecklist = async (data: any) => {
-    try {
-      if (!user || profile?.role !== 'inspector') throw new Error('Not authorized');
-      
-      // Create checklist
-      const { data: checklist, error } = await supabase
-        .from('inspection_checklists')
-        .insert({
-          application_id: data.applicationId,
-          inspector_id: user.id,
-          inspector_name: `${profile.first_name} ${profile.last_name}`,
-          notes: data.notes || null,
-          inspection_date: new Date().toISOString().split('T')[0]
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      
-      // Upload checklist items
-      if (data.items && data.items.length > 0) {
-        for (const item of data.items) {
-          // Upload image if provided
-          let imagePath = null;
-          if (item.image) {
-            const fileName = `inspections/${checklist.id}/${Date.now()}_${item.image.name}`;
-            
-            // Upload to storage
-            const { error: uploadError } = await supabase.storage
-              .from('documents')
-              .upload(fileName, item.image);
-
-            if (uploadError) throw uploadError;
-            
-            // Get public URL
-            const { data: publicUrlData } = supabase.storage
-              .from('documents')
-              .getPublicUrl(fileName);
-            
-            imagePath = publicUrlData.publicUrl;
-          }
-          
-          // Save checklist item
-          const { error: itemError } = await supabase
-            .from('checklist_items')
-            .insert({
-              checklist_id: checklist.id,
-              item_name: item.name,
-              is_compliant: item.isCompliant,
-              notes: item.notes || null,
-              image_path: imagePath
-            });
-
-          if (itemError) throw itemError;
-        }
-      }
-      
-      // Update application status
-      const { error: updateError } = await supabase
-        .from('applications')
-        .update({ status: 'inspected' })
-        .eq('id', data.applicationId);
-
-      if (updateError) throw updateError;
-      
-      toast.success('Inspection checklist submitted successfully');
-    } catch (error: any) {
-      toast.error(`Error submitting inspection checklist: ${error.message}`);
-      throw error;
     }
   };
 
@@ -604,14 +349,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         getEstablishments,
         registerEstablishment,
         submitApplication,
-        getApplications,
-        createInspectorAccount,
-        getInspectors,
-        getOwners,
-        updateApplication,
-        getApplication,
-        getInspections,
-        submitInspectionChecklist
+        getApplications
       }}
     >
       {children}
