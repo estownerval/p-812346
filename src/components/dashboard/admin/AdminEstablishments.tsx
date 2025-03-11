@@ -1,23 +1,33 @@
 
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Eye, Check, X } from "lucide-react";
-import { toast } from "@/components/ui/use-toast";
+import { useEffect, useState } from "react";
 import { 
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Table, TableBody, TableCaption, TableCell, TableHead, 
+  TableHeader, TableRow 
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
+import { 
+  Card, CardContent, CardDescription, CardFooter, 
+  CardHeader, CardTitle 
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { 
+  Dialog, DialogContent, DialogDescription, DialogFooter, 
+  DialogHeader, DialogTitle 
 } from "@/components/ui/dialog";
+import { 
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  Eye, Search, CheckCircle, XCircle, AlertCircle, 
+  Building, Loader2 
+} from "lucide-react";
+import { toast } from "sonner";
 
-// Define types for our data
-interface Owner {
-  id: string;
+interface OwnerInfo {
   first_name: string;
   last_name: string;
   email: string;
@@ -27,439 +37,550 @@ interface Establishment {
   id: string;
   name: string;
   dti_number: string;
+  status: 'unregistered' | 'registered' | 'rejected' | 'pending';
   address?: string;
-  status: "pending" | "approved" | "rejected";
-  owner_id: string;
   created_at: string;
-  owner: Owner;
-  submittedDate?: string; // For UI display
+  updated_at: string;
+  owner_id: string;
+  owner: OwnerInfo | null;
 }
 
 const AdminEstablishments = () => {
+  const [establishments, setEstablishments] = useState<Establishment[]>([]);
+  const [filteredEstablishments, setFilteredEstablishments] = useState<Establishment[]>([]);
   const [pendingRegistrations, setPendingRegistrations] = useState<Establishment[]>([]);
-  const [approvedRegistrations, setApprovedRegistrations] = useState<Establishment[]>([]);
-  const [rejectedRegistrations, setRejectedRegistrations] = useState<Establishment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("all");
   const [selectedEstablishment, setSelectedEstablishment] = useState<Establishment | null>(null);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [confirmationDialog, setConfirmationDialog] = useState({
+    isOpen: false,
+    type: "", // "approve" or "reject"
+    establishmentId: "",
+  });
+  const [rejectionReason, setRejectionReason] = useState("");
+
+  const { getEstablishments, updateApplication } = useAuth();
 
   useEffect(() => {
     fetchEstablishments();
   }, []);
 
+  useEffect(() => {
+    filterEstablishments();
+  }, [searchTerm, statusFilter, establishments]);
+
   const fetchEstablishments = async () => {
     setIsLoading(true);
-    
     try {
-      // Mock data for demonstration purposes
+      const data = await getEstablishments();
+      
+      // Process the data to ensure it matches our Establishment type
+      const processedData = data.map((est: any) => ({
+        ...est,
+        owner: est.owner && !est.owner.error ? {
+          first_name: est.owner.first_name || '',
+          last_name: est.owner.last_name || '',
+          email: est.owner.email || '',
+        } : null
+      }));
+      
+      setEstablishments(processedData);
+      
+      // Filter pending registrations
+      const pending = processedData.filter((est: Establishment) => est.status === 'pending');
+      setPendingRegistrations(pending);
+      
+      setFilteredEstablishments(processedData);
+    } catch (error) {
+      console.error("Error fetching establishments:", error);
+      toast.error("Failed to fetch establishments");
+      
+      // Mock data for demonstration
       const mockEstablishments: Establishment[] = [
-        { 
-          id: "1", 
-          name: "ABC Restaurant", 
-          dti_number: "DTI-123456", 
-          address: "123 Main St, Makati City",
-          status: "pending", 
-          owner_id: "user1",
+        {
+          id: "1",
+          name: "ABC Restaurant",
+          dti_number: "DTI-123456",
+          status: "registered",
+          address: "123 Main St, Quezon City",
           created_at: "2023-05-15T10:30:00Z",
-          submittedDate: "2023-05-15",
+          updated_at: "2023-05-15T10:30:00Z",
+          owner_id: "user-1",
           owner: {
-            id: "user1",
-            first_name: "Jane",
-            last_name: "Smith",
-            email: "jane.smith@example.com"
-          }
-        },
-        { 
-          id: "2", 
-          name: "XYZ Mall", 
-          dti_number: "DTI-789012", 
-          address: "456 Shopping Ave, Pasay City",
-          status: "pending", 
-          owner_id: "user2",
-          created_at: "2023-05-14T14:15:00Z",
-          submittedDate: "2023-05-14",
-          owner: {
-            id: "user2",
             first_name: "John",
             last_name: "Doe",
             email: "john.doe@example.com"
           }
         },
-        { 
-          id: "3", 
-          name: "Grand Hotel", 
-          dti_number: "DTI-345678", 
-          address: "789 Luxury Blvd, Manila",
-          status: "approved", 
-          owner_id: "user3",
-          created_at: "2023-05-10T09:00:00Z",
-          submittedDate: "2023-05-10",
+        {
+          id: "2",
+          name: "XYZ Cafe",
+          dti_number: "DTI-789012",
+          status: "pending",
+          address: "456 Park Ave, Makati City",
+          created_at: "2023-05-14T14:15:00Z",
+          updated_at: "2023-05-14T14:15:00Z",
+          owner_id: "user-2",
           owner: {
-            id: "user3",
-            first_name: "Alice",
+            first_name: "Jane",
+            last_name: "Smith",
+            email: "jane.smith@example.com"
+          }
+        },
+        {
+          id: "3",
+          name: "Grand Hotel",
+          dti_number: "DTI-345678",
+          status: "rejected",
+          address: "789 Beach Rd, Manila",
+          created_at: "2023-05-13T09:00:00Z",
+          updated_at: "2023-05-13T09:00:00Z",
+          owner_id: "user-3",
+          owner: {
+            first_name: "Bob",
             last_name: "Johnson",
-            email: "alice.johnson@example.com"
+            email: "bob.johnson@example.com"
           }
         },
-        { 
-          id: "4", 
-          name: "Small Cafe", 
-          dti_number: "DTI-987654", 
-          address: "321 Coffee St, Quezon City",
-          status: "rejected", 
-          owner_id: "user4",
-          created_at: "2023-05-16T15:00:00Z",
-          submittedDate: "2023-05-16",
+        {
+          id: "4",
+          name: "City Mall",
+          dti_number: "DTI-567890",
+          status: "unregistered",
+          created_at: "2023-05-12T11:45:00Z",
+          updated_at: "2023-05-12T11:45:00Z",
+          owner_id: "user-4",
           owner: {
-            id: "user4",
-            first_name: "Dave",
+            first_name: "Alice",
             last_name: "Brown",
-            email: "dave.brown@example.com"
+            email: "alice.brown@example.com"
           }
         },
+        {
+          id: "5",
+          name: "Tech Hub",
+          dti_number: "DTI-901234",
+          status: "pending",
+          address: "321 Innovation St, Pasig City",
+          created_at: "2023-05-11T16:20:00Z",
+          updated_at: "2023-05-11T16:20:00Z",
+          owner_id: "user-5",
+          owner: {
+            first_name: "Mike",
+            last_name: "Wilson",
+            email: "mike.wilson@example.com"
+          }
+        }
       ];
-
-      // Filter establishments by status
-      setPendingRegistrations(mockEstablishments.filter(est => est.status === "pending"));
-      setApprovedRegistrations(mockEstablishments.filter(est => est.status === "approved"));
-      setRejectedRegistrations(mockEstablishments.filter(est => est.status === "rejected"));
-    } catch (error) {
-      console.error("Error fetching establishments:", error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch establishments.",
-        variant: "destructive",
-      });
+      setEstablishments(mockEstablishments);
+      
+      // Filter pending registrations
+      const pending = mockEstablishments.filter(est => est.status === 'pending');
+      setPendingRegistrations(pending);
+      
+      setFilteredEstablishments(mockEstablishments);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleApprove = (id: string) => {
-    // Find the establishment to approve
-    const establishment = pendingRegistrations.find(est => est.id === id);
-    if (!establishment) return;
+  const filterEstablishments = () => {
+    let filtered = [...establishments];
     
-    // Update status locally for demonstration
-    const updatedEstablishment = { ...establishment, status: "approved" as const };
+    // Apply status filter
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(est => est.status === statusFilter);
+    }
     
-    // Remove from pending and add to approved
-    setPendingRegistrations(pendingRegistrations.filter(est => est.id !== id));
-    setApprovedRegistrations([...approvedRegistrations, updatedEstablishment]);
+    // Apply search filter
+    if (searchTerm) {
+      const search = searchTerm.toLowerCase();
+      filtered = filtered.filter(est => 
+        est.name.toLowerCase().includes(search) || 
+        est.dti_number.toLowerCase().includes(search) ||
+        (est.address && est.address.toLowerCase().includes(search)) ||
+        (est.owner && (
+          est.owner.first_name.toLowerCase().includes(search) ||
+          est.owner.last_name.toLowerCase().includes(search) ||
+          est.owner.email.toLowerCase().includes(search)
+        ))
+      );
+    }
     
-    toast({
-      title: "Registration Approved",
-      description: `${establishment.name} has been approved.`,
-    });
-    
-    // In a real app, you would update the Supabase database here
+    setFilteredEstablishments(filtered);
   };
 
-  const handleReject = (id: string) => {
-    // Find the establishment to reject
-    const establishment = pendingRegistrations.find(est => est.id === id);
-    if (!establishment) return;
-    
-    // Update status locally for demonstration
-    const updatedEstablishment = { ...establishment, status: "rejected" as const };
-    
-    // Remove from pending and add to rejected
-    setPendingRegistrations(pendingRegistrations.filter(est => est.id !== id));
-    setRejectedRegistrations([...rejectedRegistrations, updatedEstablishment]);
-    
-    toast({
-      title: "Registration Rejected",
-      description: `${establishment.name} has been rejected.`,
-      variant: "destructive",
-    });
-    
-    // In a real app, you would update the Supabase database here
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
   };
 
-  const handleViewDetails = (establishment: Establishment) => {
+  const handleStatusFilter = (value: string) => {
+    setStatusFilter(value);
+  };
+
+  const viewEstablishment = (establishment: Establishment) => {
     setSelectedEstablishment(establishment);
-    setViewDialogOpen(true);
+    setIsViewDialogOpen(true);
   };
 
-  const filteredPendingRegistrations = pendingRegistrations.filter(
-    reg => reg.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-           reg.dti_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           reg.owner.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           reg.owner.last_name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleApproveOrReject = (type: "approve" | "reject", id: string) => {
+    setConfirmationDialog({
+      isOpen: true,
+      type,
+      establishmentId: id
+    });
+    setRejectionReason("");
+  };
 
-  const filteredApprovedRegistrations = approvedRegistrations.filter(
-    reg => reg.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-           reg.dti_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           reg.owner.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           reg.owner.last_name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const confirmApproveOrReject = async () => {
+    try {
+      const { type, establishmentId } = confirmationDialog;
+      
+      // In a real app, this would update the Supabase database
+      // For now, we'll update the local state
+      const updatedEstablishments = establishments.map(est => 
+        est.id === establishmentId ? 
+          { ...est, status: type === "approve" ? "registered" : "rejected" } : 
+          est
+      );
+      
+      setEstablishments(updatedEstablishments);
+      
+      // Filter updated pending registrations
+      const pending = updatedEstablishments.filter(est => est.status === 'pending');
+      setPendingRegistrations(pending);
+      
+      // Reset dialogs
+      setConfirmationDialog({ isOpen: false, type: "", establishmentId: "" });
+      
+      // Show success message
+      toast.success(`Establishment ${type === "approve" ? "approved" : "rejected"} successfully`);
+      
+      // Simulate notification to owner
+      toast.info(`Notification sent to owner about ${type === "approve" ? "approval" : "rejection"}`);
+    } catch (error) {
+      console.error(`Error ${confirmationDialog.type}ing establishment:`, error);
+      toast.error(`Failed to ${confirmationDialog.type} establishment`);
+    }
+  };
 
-  const filteredRejectedRegistrations = rejectedRegistrations.filter(
-    reg => reg.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-           reg.dti_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           reg.owner.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           reg.owner.last_name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-fire" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold tracking-tight">Establishment Management</h2>
+        <h2 className="text-3xl font-bold tracking-tight">Establishments</h2>
       </div>
 
-      <Tabs defaultValue="pending" className="space-y-4">
+      <Tabs defaultValue="all" className="space-y-4">
         <div className="flex justify-between items-center">
           <TabsList>
-            <TabsTrigger value="pending">Pending Registrations</TabsTrigger>
-            <TabsTrigger value="approved">Approved Establishments</TabsTrigger>
-            <TabsTrigger value="rejected">Rejected Registrations</TabsTrigger>
+            <TabsTrigger value="all">All Establishments</TabsTrigger>
+            <TabsTrigger value="registrations">Pending Registrations ({pendingRegistrations.length})</TabsTrigger>
           </TabsList>
           
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search establishments..."
-              className="w-[250px] pl-8"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+          <div className="flex items-center gap-2">
+            <Select value={statusFilter} onValueChange={handleStatusFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="registered">Registered</SelectItem>
+                <SelectItem value="unregistered">Unregistered</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search establishments..."
+                className="w-[250px] pl-8"
+                value={searchTerm}
+                onChange={handleSearch}
+              />
+            </div>
           </div>
         </div>
 
-        <TabsContent value="pending" className="space-y-4">
+        <TabsContent value="all">
           <Card>
             <CardContent className="p-0">
-              <div className="rounded-md border">
-                <table className="w-full caption-bottom text-sm">
-                  <thead className="border-b bg-muted/50">
-                    <tr>
-                      <th className="h-12 px-4 text-left align-middle font-medium">Name</th>
-                      <th className="h-12 px-4 text-left align-middle font-medium">DTI Number</th>
-                      <th className="h-12 px-4 text-left align-middle font-medium">Owner</th>
-                      <th className="h-12 px-4 text-left align-middle font-medium">Submitted Date</th>
-                      <th className="h-12 px-4 text-left align-middle font-medium">Status</th>
-                      <th className="h-12 px-4 text-left align-middle font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredPendingRegistrations.length > 0 ? (
-                      filteredPendingRegistrations.map((registration) => (
-                        <tr key={registration.id} className="border-b transition-colors hover:bg-muted/50">
-                          <td className="p-4 align-middle">{registration.name}</td>
-                          <td className="p-4 align-middle">{registration.dti_number}</td>
-                          <td className="p-4 align-middle">{`${registration.owner.first_name} ${registration.owner.last_name}`}</td>
-                          <td className="p-4 align-middle">{registration.submittedDate}</td>
-                          <td className="p-4 align-middle">
-                            <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-yellow-50 text-yellow-600">
-                              Pending
-                            </span>
-                          </td>
-                          <td className="p-4 align-middle">
-                            <div className="flex gap-2">
-                              <Button 
-                                size="icon" 
-                                variant="outline"
-                                onClick={() => handleViewDetails(registration)}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                className="bg-green-600 hover:bg-green-700"
-                                onClick={() => handleApprove(registration.id)}
-                              >
-                                <Check className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="destructive"
-                                onClick={() => handleReject(registration.id)}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={6} className="p-4 text-center text-muted-foreground">
-                          No pending registrations found.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>DTI Number</TableHead>
+                    <TableHead>Owner</TableHead>
+                    <TableHead>Address</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredEstablishments.length > 0 ? (
+                    filteredEstablishments.map((establishment) => (
+                      <TableRow key={establishment.id}>
+                        <TableCell className="font-medium">{establishment.name}</TableCell>
+                        <TableCell>{establishment.dti_number}</TableCell>
+                        <TableCell>
+                          {establishment.owner ? 
+                            `${establishment.owner.first_name} ${establishment.owner.last_name}` : 
+                            "N/A"}
+                        </TableCell>
+                        <TableCell>{establishment.address || "Not provided"}</TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={
+                              establishment.status === "registered" 
+                                ? "default" 
+                                : establishment.status === "pending"
+                                ? "secondary"
+                                : establishment.status === "rejected"
+                                ? "destructive"
+                                : "outline"
+                            }
+                          >
+                            {establishment.status === "registered" 
+                              ? "Registered" 
+                              : establishment.status === "pending"
+                              ? "Pending Approval"
+                              : establishment.status === "rejected"
+                              ? "Rejected"
+                              : "Unregistered"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => viewEstablishment(establishment)}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-4">
+                        No establishments found.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="approved" className="space-y-4">
+        <TabsContent value="registrations">
           <Card>
             <CardContent className="p-0">
-              <div className="rounded-md border">
-                <table className="w-full caption-bottom text-sm">
-                  <thead className="border-b bg-muted/50">
-                    <tr>
-                      <th className="h-12 px-4 text-left align-middle font-medium">Name</th>
-                      <th className="h-12 px-4 text-left align-middle font-medium">DTI Number</th>
-                      <th className="h-12 px-4 text-left align-middle font-medium">Owner</th>
-                      <th className="h-12 px-4 text-left align-middle font-medium">Submitted Date</th>
-                      <th className="h-12 px-4 text-left align-middle font-medium">Status</th>
-                      <th className="h-12 px-4 text-left align-middle font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredApprovedRegistrations.length > 0 ? (
-                      filteredApprovedRegistrations.map((registration) => (
-                        <tr key={registration.id} className="border-b transition-colors hover:bg-muted/50">
-                          <td className="p-4 align-middle">{registration.name}</td>
-                          <td className="p-4 align-middle">{registration.dti_number}</td>
-                          <td className="p-4 align-middle">{`${registration.owner.first_name} ${registration.owner.last_name}`}</td>
-                          <td className="p-4 align-middle">{registration.submittedDate}</td>
-                          <td className="p-4 align-middle">
-                            <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-green-50 text-green-600">
-                              Approved
-                            </span>
-                          </td>
-                          <td className="p-4 align-middle">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>DTI Number</TableHead>
+                    <TableHead>Owner</TableHead>
+                    <TableHead>Address</TableHead>
+                    <TableHead>Submission Date</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pendingRegistrations.length > 0 ? (
+                    pendingRegistrations.map((establishment) => (
+                      <TableRow key={establishment.id}>
+                        <TableCell className="font-medium">{establishment.name}</TableCell>
+                        <TableCell>{establishment.dti_number}</TableCell>
+                        <TableCell>
+                          {establishment.owner ? 
+                            `${establishment.owner.first_name} ${establishment.owner.last_name}` : 
+                            "N/A"}
+                        </TableCell>
+                        <TableCell>{establishment.address || "Not provided"}</TableCell>
+                        <TableCell>
+                          {new Date(establishment.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
                             <Button 
+                              variant="outline" 
                               size="sm" 
-                              variant="outline"
-                              onClick={() => handleViewDetails(registration)}
+                              onClick={() => viewEstablishment(establishment)}
                             >
-                              View Details
+                              <Eye className="h-4 w-4 mr-1" />
+                              View
                             </Button>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={6} className="p-4 text-center text-muted-foreground">
-                          No approved establishments found.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="rejected" className="space-y-4">
-          <Card>
-            <CardContent className="p-0">
-              <div className="rounded-md border">
-                <table className="w-full caption-bottom text-sm">
-                  <thead className="border-b bg-muted/50">
-                    <tr>
-                      <th className="h-12 px-4 text-left align-middle font-medium">Name</th>
-                      <th className="h-12 px-4 text-left align-middle font-medium">DTI Number</th>
-                      <th className="h-12 px-4 text-left align-middle font-medium">Owner</th>
-                      <th className="h-12 px-4 text-left align-middle font-medium">Submitted Date</th>
-                      <th className="h-12 px-4 text-left align-middle font-medium">Status</th>
-                      <th className="h-12 px-4 text-left align-middle font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredRejectedRegistrations.length > 0 ? (
-                      filteredRejectedRegistrations.map((registration) => (
-                        <tr key={registration.id} className="border-b transition-colors hover:bg-muted/50">
-                          <td className="p-4 align-middle">{registration.name}</td>
-                          <td className="p-4 align-middle">{registration.dti_number}</td>
-                          <td className="p-4 align-middle">{`${registration.owner.first_name} ${registration.owner.last_name}`}</td>
-                          <td className="p-4 align-middle">{registration.submittedDate}</td>
-                          <td className="p-4 align-middle">
-                            <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-red-50 text-red-600">
-                              Rejected
-                            </span>
-                          </td>
-                          <td className="p-4 align-middle">
                             <Button 
+                              variant="default" 
                               size="sm" 
-                              variant="outline"
-                              onClick={() => handleViewDetails(registration)}
+                              className="bg-green-600 hover:bg-green-700"
+                              onClick={() => handleApproveOrReject("approve", establishment.id)}
                             >
-                              View Details
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Approve
                             </Button>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={6} className="p-4 text-center text-muted-foreground">
-                          No rejected registrations found.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                            <Button 
+                              variant="destructive" 
+                              size="sm"
+                              onClick={() => handleApproveOrReject("reject", establishment.id)}
+                            >
+                              <XCircle className="h-4 w-4 mr-1" />
+                              Reject
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-4">
+                        No pending registrations.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-      {/* View Establishment Details Dialog */}
-      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+      {/* View Establishment Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Establishment Details</DialogTitle>
-            <DialogDescription>
-              Details of the establishment registration.
-            </DialogDescription>
           </DialogHeader>
-          
           {selectedEstablishment && (
             <div className="space-y-4">
               <div>
-                <h4 className="text-sm font-medium text-gray-500">Establishment Name</h4>
-                <p>{selectedEstablishment.name}</p>
+                <h4 className="font-medium text-sm text-muted-foreground">Name</h4>
+                <p className="text-lg">{selectedEstablishment.name}</p>
               </div>
               
               <div>
-                <h4 className="text-sm font-medium text-gray-500">DTI Certificate Number</h4>
+                <h4 className="font-medium text-sm text-muted-foreground">DTI Certificate Number</h4>
                 <p>{selectedEstablishment.dti_number}</p>
               </div>
               
               <div>
-                <h4 className="text-sm font-medium text-gray-500">Address</h4>
+                <h4 className="font-medium text-sm text-muted-foreground">Owner</h4>
+                <p>
+                  {selectedEstablishment.owner ? 
+                    `${selectedEstablishment.owner.first_name} ${selectedEstablishment.owner.last_name}` : 
+                    "N/A"}
+                </p>
+                {selectedEstablishment.owner && (
+                  <p className="text-sm text-muted-foreground">
+                    {selectedEstablishment.owner.email}
+                  </p>
+                )}
+              </div>
+              
+              <div>
+                <h4 className="font-medium text-sm text-muted-foreground">Address</h4>
                 <p>{selectedEstablishment.address || "Not provided"}</p>
               </div>
               
               <div>
-                <h4 className="text-sm font-medium text-gray-500">Owner</h4>
-                <p>{`${selectedEstablishment.owner.first_name} ${selectedEstablishment.owner.last_name} (${selectedEstablishment.owner.email})`}</p>
+                <h4 className="font-medium text-sm text-muted-foreground">Status</h4>
+                <Badge 
+                  variant={
+                    selectedEstablishment.status === "registered" 
+                      ? "default" 
+                      : selectedEstablishment.status === "pending"
+                      ? "secondary"
+                      : selectedEstablishment.status === "rejected"
+                      ? "destructive"
+                      : "outline"
+                  }
+                  className="mt-1"
+                >
+                  {selectedEstablishment.status === "registered" 
+                    ? "Registered" 
+                    : selectedEstablishment.status === "pending"
+                    ? "Pending Approval"
+                    : selectedEstablishment.status === "rejected"
+                    ? "Rejected"
+                    : "Unregistered"}
+                </Badge>
               </div>
               
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Status</h4>
-                <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
-                  selectedEstablishment.status === 'pending' 
-                    ? 'bg-yellow-50 text-yellow-600' 
-                    : selectedEstablishment.status === 'approved'
-                      ? 'bg-green-50 text-green-600'
-                      : 'bg-red-50 text-red-600'
-                }`}>
-                  {selectedEstablishment.status.charAt(0).toUpperCase() + selectedEstablishment.status.slice(1)}
-                </span>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="font-medium text-sm text-muted-foreground">Submission Date</h4>
+                  <p>{new Date(selectedEstablishment.created_at).toLocaleDateString()}</p>
+                </div>
+                <div>
+                  <h4 className="font-medium text-sm text-muted-foreground">Last Updated</h4>
+                  <p>{new Date(selectedEstablishment.updated_at).toLocaleDateString()}</p>
+                </div>
               </div>
-              
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Submitted Date</h4>
-                <p>{selectedEstablishment.submittedDate}</p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setIsViewDialogOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation Dialog */}
+      <Dialog open={confirmationDialog.isOpen} onOpenChange={(isOpen) => 
+        setConfirmationDialog({ ...confirmationDialog, isOpen })}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {confirmationDialog.type === "approve" ? "Approve" : "Reject"} Establishment
+            </DialogTitle>
+            <DialogDescription>
+              {confirmationDialog.type === "approve" 
+                ? "Are you sure you want to approve this establishment registration?" 
+                : "Please provide a reason for rejecting this establishment registration."}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {confirmationDialog.type === "reject" && (
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="rejectionReason">Rejection Reason</Label>
+                <Input
+                  id="rejectionReason"
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  placeholder="Enter reason for rejection"
+                />
               </div>
             </div>
           )}
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setViewDialogOpen(false)}>
-              Close
+            <Button 
+              variant="outline" 
+              onClick={() => setConfirmationDialog({ isOpen: false, type: "", establishmentId: "" })}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant={confirmationDialog.type === "approve" ? "default" : "destructive"}
+              onClick={confirmApproveOrReject}
+              disabled={confirmationDialog.type === "reject" && !rejectionReason}
+            >
+              Confirm {confirmationDialog.type === "approve" ? "Approval" : "Rejection"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -3,8 +3,8 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Building, FileText, AlertCircle, Plus, CalendarClock } from "lucide-react";
-import { Link } from "react-router-dom";
-import { toast } from "@/components/ui/use-toast";
+import { Link, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { 
   Dialog,
   DialogContent,
@@ -15,6 +15,14 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useAuth, Application } from "@/contexts/AuthContext";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+interface DashboardStats {
+  registeredEstablishments: number;
+  applications: number;
+  requireAttention: number;
+}
 
 interface Establishment {
   id: string;
@@ -22,22 +30,12 @@ interface Establishment {
   dti_number: string;
   status: "unregistered" | "registered" | "rejected" | "pending";
   address?: string;
-}
-
-interface Application {
-  id: string;
-  establishment_id: string;
-  establishment: {
-    name: string;
-  };
-  application_type: "fsec" | "fsic_occupancy" | "fsic_business";
-  status: "pending" | "for-inspection" | "approved" | "rejected";
-  date: string;
+  created_at?: string;
 }
 
 const OwnerHome = () => {
   const [isLoading, setIsLoading] = useState(true);
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<DashboardStats>({
     registeredEstablishments: 0,
     applications: 0,
     requireAttention: 0,
@@ -49,6 +47,9 @@ const OwnerHome = () => {
   const [address, setAddress] = useState("");
   const [isApplicationDialogOpen, setIsApplicationDialogOpen] = useState(false);
   const [selectedApplicationType, setSelectedApplicationType] = useState<"fsec" | "fsic_occupancy" | "fsic_business" | null>(null);
+  
+  const navigate = useNavigate();
+  const { getEstablishments, getApplications, registerEstablishment } = useAuth();
 
   useEffect(() => {
     fetchDashboardData();
@@ -57,17 +58,104 @@ const OwnerHome = () => {
   const fetchDashboardData = async () => {
     setIsLoading(true);
     try {
-      // Mock data for the owner's dashboard
+      // Try to fetch real data from Supabase
+      const establishmentsData = await getEstablishments();
+      const applicationsData = await getApplications();
       
-      // Mock stats
-      const mockStats = {
-        registeredEstablishments: 1,
-        applications: 3,
-        requireAttention: 1,
-      };
-      setStats(mockStats);
-
-      // Mock establishments
+      // Process the data for establishments
+      if (establishmentsData && establishmentsData.length > 0) {
+        setEstablishments(establishmentsData);
+      } else {
+        // Mock establishments if real data fails or is empty
+        const mockEstablishments: Establishment[] = [
+          {
+            id: "1",
+            name: "ABC Restaurant",
+            dti_number: "DTI-123456",
+            status: "registered",
+            address: "123 Main St, Makati City",
+            created_at: "2023-05-15T10:30:00Z"
+          },
+          {
+            id: "2",
+            name: "XYZ Cafe",
+            dti_number: "DTI-789012",
+            status: "unregistered",
+            created_at: "2023-05-14T14:15:00Z"
+          },
+          {
+            id: "3",
+            name: "New Bakery",
+            dti_number: "DTI-456789",
+            status: "pending",
+            address: "456 Park Ave, Quezon City",
+            created_at: "2023-05-13T09:00:00Z"
+          },
+          {
+            id: "4",
+            name: "Corner Store",
+            dti_number: "DTI-234567",
+            status: "rejected",
+            address: "789 Beach Rd, Manila",
+            created_at: "2023-05-12T11:45:00Z"
+          },
+        ];
+        setEstablishments(mockEstablishments);
+      }
+      
+      // Process the data for applications
+      if (applicationsData && applicationsData.length > 0) {
+        setApplications(applicationsData);
+      } else {
+        // Mock applications if real data fails or is empty
+        const mockApplications: Application[] = [
+          {
+            id: "1",
+            establishment_id: "1",
+            application_type: "fsec",
+            status: "pending",
+            application_date: "2023-05-15",
+            application_time: "10:30 AM",
+            establishment: {
+              id: "1",
+              name: "ABC Restaurant"
+            }
+          },
+          {
+            id: "2",
+            establishment_id: "1",
+            application_type: "fsic_business",
+            status: "for_inspection",
+            application_date: "2023-05-10",
+            application_time: "02:15 PM",
+            inspector_id: "inspector-1",
+            inspection_date: "2023-05-20",
+            inspection_time: "09:00 AM",
+            establishment: {
+              id: "1",
+              name: "ABC Restaurant"
+            }
+          },
+        ];
+        setApplications(mockApplications);
+      }
+      
+      // Calculate stats based on the data we have
+      const registeredCount = establishments.filter(e => e.status === "registered").length;
+      const applicationsCount = applications.length;
+      const attentionCount = applications.filter(a => a.status === "rejected").length +
+                             establishments.filter(e => e.status === "rejected").length;
+      
+      setStats({
+        registeredEstablishments: registeredCount,
+        applications: applicationsCount,
+        requireAttention: attentionCount
+      });
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+      toast.error("Failed to fetch dashboard data");
+      
+      // Use mock data if fetching fails
       const mockEstablishments: Establishment[] = [
         {
           id: "1",
@@ -75,58 +163,69 @@ const OwnerHome = () => {
           dti_number: "DTI-123456",
           status: "registered",
           address: "123 Main St, Makati City",
+          created_at: "2023-05-15T10:30:00Z"
         },
         {
           id: "2",
           name: "XYZ Cafe",
           dti_number: "DTI-789012",
           status: "unregistered",
+          created_at: "2023-05-14T14:15:00Z"
         },
         {
           id: "3",
           name: "New Bakery",
           dti_number: "DTI-456789",
           status: "pending",
+          address: "456 Park Ave, Quezon City",
+          created_at: "2023-05-13T09:00:00Z"
         },
         {
           id: "4",
           name: "Corner Store",
           dti_number: "DTI-234567",
           status: "rejected",
+          address: "789 Beach Rd, Manila",
+          created_at: "2023-05-12T11:45:00Z"
         },
       ];
       setEstablishments(mockEstablishments);
-
-      // Mock applications
+      
       const mockApplications: Application[] = [
         {
           id: "1",
           establishment_id: "1",
-          establishment: {
-            name: "ABC Restaurant",
-          },
           application_type: "fsec",
           status: "pending",
-          date: "May 15, 2023",
+          application_date: "2023-05-15",
+          application_time: "10:30 AM",
+          establishment: {
+            id: "1",
+            name: "ABC Restaurant"
+          }
         },
         {
           id: "2",
           establishment_id: "1",
-          establishment: {
-            name: "ABC Restaurant",
-          },
           application_type: "fsic_business",
-          status: "for-inspection",
-          date: "May 10, 2023",
+          status: "for_inspection",
+          application_date: "2023-05-10",
+          application_time: "02:15 PM",
+          inspector_id: "inspector-1",
+          inspection_date: "2023-05-20",
+          inspection_time: "09:00 AM",
+          establishment: {
+            id: "1",
+            name: "ABC Restaurant"
+          }
         },
       ];
       setApplications(mockApplications);
-    } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch dashboard data.",
-        variant: "destructive",
+      
+      setStats({
+        registeredEstablishments: 1,
+        applications: 2,
+        requireAttention: 1,
       });
     } finally {
       setIsLoading(false);
@@ -141,17 +240,15 @@ const OwnerHome = () => {
 
   const submitRegistration = async () => {
     if (!selectedEstablishment || !address) {
-      toast({
-        title: "Error",
-        description: "Please provide the establishment address",
-        variant: "destructive",
-      });
+      toast.error("Please provide the establishment address");
       return;
     }
 
     try {
-      // In a real app, this would update the Supabase database
-      // For now, just update the local state for demonstration
+      // Try to use the real function
+      await registerEstablishment(selectedEstablishment.id, address);
+      
+      // Update the establishments list with the updated status
       const updatedEstablishments = establishments.map(est => 
         est.id === selectedEstablishment.id ? 
           { ...est, status: "pending" as const, address } : 
@@ -161,17 +258,11 @@ const OwnerHome = () => {
       
       setIsRegistrationDialogOpen(false);
       
-      toast({
-        title: "Registration Submitted",
-        description: "Your establishment registration has been submitted for approval.",
-      });
+      toast.success("Establishment registration submitted for approval");
+      fetchDashboardData(); // Refresh data
     } catch (error) {
       console.error("Error registering establishment:", error);
-      toast({
-        title: "Error",
-        description: "Failed to register establishment.",
-        variant: "destructive",
-      });
+      toast.error("Failed to register establishment");
     }
   };
 
@@ -184,16 +275,9 @@ const OwnerHome = () => {
     setSelectedApplicationType(type);
     setIsApplicationDialogOpen(false);
     
-    // In a real app, this would navigate to the application form page
-    // For now, just show a toast notification
-    toast({
-      title: "Application Type Selected",
-      description: `You selected ${
-        type === 'fsec' ? 'Fire Safety Evaluation Clearance' :
-        type === 'fsic_occupancy' ? 'Fire Safety Inspection Certificate (Occupancy)' :
-        'Fire Safety Inspection Certificate (Business)'
-      }. Proceeding to application form.`,
-    });
+    if (selectedEstablishment) {
+      navigate(`/dashboard/owner/applications/new/${selectedEstablishment.id}?type=${type}`);
+    }
   };
 
   return (
@@ -255,7 +339,7 @@ const OwnerHome = () => {
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-medium">My Establishments</h3>
-          <Link to="/dashboard/owner/establishments/add">
+          <Link to="/dashboard/owner/establishments">
             <Button className="bg-fire hover:bg-fire/90" size="sm">
               <Plus className="mr-2 h-4 w-4" /> Add Establishment
             </Button>
@@ -332,47 +416,57 @@ const OwnerHome = () => {
         
         <Card>
           <CardContent className="p-0">
-            <div className="rounded-md border">
-              <table className="w-full caption-bottom text-sm">
-                <thead className="border-b bg-muted/50">
-                  <tr>
-                    <th className="h-12 px-4 text-left align-middle font-medium">Application Type</th>
-                    <th className="h-12 px-4 text-left align-middle font-medium">Establishment</th>
-                    <th className="h-12 px-4 text-left align-middle font-medium">Date</th>
-                    <th className="h-12 px-4 text-left align-middle font-medium">Status</th>
-                    <th className="h-12 px-4 text-left align-middle font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {applications.map((app) => (
-                    <tr key={app.id} className="border-b transition-colors hover:bg-muted/50">
-                      <td className="p-4 align-middle">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Application Type</TableHead>
+                  <TableHead>Establishment</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {applications.length > 0 ? (
+                  applications.map((app) => (
+                    <TableRow key={app.id}>
+                      <TableCell>
                         {app.application_type === 'fsec' ? 'FSEC' :
                         app.application_type === 'fsic_occupancy' ? 'FSIC (Occupancy)' :
                         'FSIC (Business)'}
-                      </td>
-                      <td className="p-4 align-middle">{app.establishment.name}</td>
-                      <td className="p-4 align-middle">{app.date}</td>
-                      <td className="p-4 align-middle">
+                      </TableCell>
+                      <TableCell>{app.establishment?.name || "Unknown"}</TableCell>
+                      <TableCell>{app.application_date}</TableCell>
+                      <TableCell>
                         <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
                           app.status === 'pending' ? 'bg-yellow-50 text-yellow-600' :
-                          app.status === 'for-inspection' ? 'bg-blue-50 text-blue-600' :
+                          app.status === 'for_inspection' ? 'bg-blue-50 text-blue-600' :
                           app.status === 'approved' ? 'bg-green-50 text-green-600' :
                           'bg-red-50 text-red-600'
                         }`}>
                           {app.status === 'pending' ? 'Pending' :
-                           app.status === 'for-inspection' ? 'For Inspection' :
+                           app.status === 'for_inspection' ? 'For Inspection' :
                            app.status === 'approved' ? 'Approved' : 'Rejected'}
                         </span>
-                      </td>
-                      <td className="p-4 align-middle">
-                        <Button variant="outline" size="sm">View</Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="outline" size="sm" asChild>
+                          <Link to={`/dashboard/owner/applications/${app.id}`}>
+                            View
+                          </Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-4">
+                      No applications found.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       </div>

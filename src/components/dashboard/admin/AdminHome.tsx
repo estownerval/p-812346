@@ -1,45 +1,47 @@
 
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building, FileText, Users, AlertCircle } from "lucide-react";
-import { toast } from "@/components/ui/use-toast";
+import { useEffect, useState } from "react";
+import { 
+  Card, CardContent, CardDescription, CardHeader, CardTitle 
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { 
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { 
+  Users, Building, FileText, CalendarCheck, Eye, Calendar 
+} from "lucide-react";
+import { useAuth, Application } from "@/contexts/AuthContext";
+import { Link } from "react-router-dom";
 
-interface Inspector {
-  id: string;
-  first_name: string;
-  last_name: string;
+interface DashboardStats {
+  totalUsers: number;
+  registeredEstablishments: number;
+  pendingApplications: number;
+  upcomingInspections: number;
 }
 
-interface Establishment {
+interface InspectionAppointment {
   id: string;
-  name: string;
-}
-
-interface Application {
-  id: string;
-  establishment_id: string;
-  establishment: Establishment;
-  application_type: "fsec" | "fsic_occupancy" | "fsic_business";
-  status: "pending" | "for-inspection" | "inspected" | "approved" | "rejected";
-  application_date: string;
-  application_time: string;
-  created_at: string;
-  inspector_id?: string;
-  inspector?: Inspector;
-  inspection_date?: string;
-  priority?: boolean;
+  establishment: string;
+  inspector: string;
+  date: string;
+  time: string;
+  type: string;
 }
 
 const AdminHome = () => {
-  const [isLoading, setIsLoading] = useState(true);
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
     registeredEstablishments: 0,
     pendingApplications: 0,
-    requireAttention: 0,
+    upcomingInspections: 0
   });
   const [recentApplications, setRecentApplications] = useState<Application[]>([]);
-  const [upcomingInspections, setUpcomingInspections] = useState<Application[]>([]);
+  const [upcomingInspections, setUpcomingInspections] = useState<InspectionAppointment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  const { getApplications, getEstablishments, getOwners, getInspectors } = useAuth();
 
   useEffect(() => {
     fetchDashboardData();
@@ -48,148 +50,198 @@ const AdminHome = () => {
   const fetchDashboardData = async () => {
     setIsLoading(true);
     try {
-      // Mock data for demonstration
-      // In a real app, this would come from Supabase
+      // Fetch real data from Supabase (in a production app)
+      // const applications = await getApplications();
+      // const establishments = await getEstablishments();
+      // const owners = await getOwners();
+      // const inspectors = await getInspectors();
       
-      // Mock stats
-      const mockStats = {
-        totalUsers: 245,
-        registeredEstablishments: 178,
-        pendingApplications: 32,
-        requireAttention: 8,
+      // For now, use mock data
+      const mockStats: DashboardStats = {
+        totalUsers: 42,
+        registeredEstablishments: 23,
+        pendingApplications: 15,
+        upcomingInspections: 7
       };
       setStats(mockStats);
-
-      // Mock recent applications
-      const mockRecentApplications: Application[] = [
+      
+      // Mock applications data
+      const mockApplications: Application[] = [
         {
           id: "1",
           establishment_id: "1",
-          establishment: { id: "1", name: "ABC Restaurant" },
           application_type: "fsec",
           status: "pending",
-          application_date: "2023-06-15",
-          application_time: "10:30",
-          created_at: new Date(Date.now() - 7200000).toISOString(), // 2 hours ago
+          application_date: "2023-05-15",
+          application_time: "10:30 AM",
+          inspector_id: undefined,
+          inspection_date: undefined,
+          inspection_time: undefined,
+          rejection_reason: undefined,
+          priority: false,
+          establishment: {
+            id: "1",
+            name: "ABC Restaurant",
+            dti_number: "DTI-123456",
+            status: "registered",
+            owner_id: "user-1"
+          }
         },
         {
           id: "2",
           establishment_id: "2",
-          establishment: { id: "2", name: "XYZ Mall" },
           application_type: "fsic_occupancy",
-          status: "for-inspection",
-          application_date: "2023-06-14",
-          application_time: "14:30",
-          created_at: new Date(Date.now() - 14400000).toISOString(), // 4 hours ago
-          inspector_id: "1",
-          inspector: { id: "1", first_name: "Jane", last_name: "Smith" },
-          inspection_date: "2023-06-21",
+          status: "for_inspection",
+          application_date: "2023-05-14",
+          application_time: "2:15 PM",
+          inspector_id: "inspector-1",
+          inspection_date: "2023-05-20",
+          inspection_time: "09:00 AM",
+          rejection_reason: undefined,
+          priority: true,
+          establishment: {
+            id: "2",
+            name: "XYZ Mall",
+            dti_number: "DTI-789012",
+            status: "registered",
+            owner_id: "user-2"
+          },
+          inspector: {
+            first_name: "Robert",
+            last_name: "Chen"
+          }
         },
         {
           id: "3",
           establishment_id: "3",
-          establishment: { id: "3", name: "Grand Hotel" },
           application_type: "fsic_business",
           status: "inspected",
-          application_date: "2023-06-13",
-          application_time: "09:00",
-          created_at: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-          inspector_id: "2",
-          inspector: { id: "2", first_name: "John", last_name: "Doe" },
-          inspection_date: "2023-06-20",
-        },
-      ];
-      setRecentApplications(mockRecentApplications);
-
-      // Mock upcoming inspections
-      const mockUpcomingInspections: Application[] = [
-        {
-          id: "2",
-          establishment_id: "2",
-          establishment: { id: "2", name: "XYZ Mall" },
-          application_type: "fsic_occupancy",
-          status: "for-inspection",
-          application_date: "2023-06-14",
-          application_time: "14:30",
-          created_at: new Date(Date.now() - 14400000).toISOString(),
-          inspector_id: "1",
-          inspector: { id: "1", first_name: "Jane", last_name: "Smith" },
-          inspection_date: "2023-06-21",
+          application_date: "2023-05-13",
+          application_time: "1:30 PM",
+          inspector_id: "inspector-2",
+          inspection_date: "2023-05-18",
+          inspection_time: "02:00 PM",
+          rejection_reason: undefined,
+          priority: false,
+          establishment: {
+            id: "3",
+            name: "Grand Hotel",
+            dti_number: "DTI-345678",
+            status: "registered",
+            owner_id: "user-3"
+          },
+          inspector: {
+            first_name: "Sarah",
+            last_name: "Williams"
+          }
         },
         {
           id: "4",
-          establishment_id: "1",
-          establishment: { id: "1", name: "ABC Restaurant" },
-          application_type: "fsic_business",
-          status: "for-inspection",
-          application_date: "2023-06-16",
-          application_time: "10:00",
-          created_at: new Date(Date.now() - 172800000).toISOString(),
-          inspector_id: "1",
-          inspector: { id: "1", first_name: "Jane", last_name: "Smith" },
-          inspection_date: "2023-06-22",
-          priority: true,
+          establishment_id: "4",
+          application_type: "fsec",
+          status: "rejected",
+          application_date: "2023-05-12",
+          application_time: "11:45 AM",
+          inspector_id: undefined,
+          inspection_date: undefined,
+          inspection_time: undefined,
+          rejection_reason: "Incomplete documentation",
+          priority: false,
+          establishment: {
+            id: "4",
+            name: "Office Tower",
+            dti_number: "DTI-567890",
+            status: "registered",
+            owner_id: "user-4"
+          }
         },
         {
           id: "5",
-          establishment_id: "3",
-          establishment: { id: "3", name: "Grand Hotel" },
-          application_type: "fsic_occupancy",
-          status: "for-inspection",
-          application_date: "2023-06-17",
-          application_time: "09:00",
-          created_at: new Date(Date.now() - 259200000).toISOString(),
-          inspector_id: "2",
-          inspector: { id: "2", first_name: "John", last_name: "Doe" },
-          inspection_date: "2023-06-23",
-        },
+          establishment_id: "5",
+          application_type: "fsic_business",
+          status: "approved",
+          application_date: "2023-05-11",
+          application_time: "9:00 AM",
+          inspector_id: "inspector-1",
+          inspection_date: "2023-05-16",
+          inspection_time: "10:00 AM",
+          rejection_reason: undefined,
+          priority: false,
+          establishment: {
+            id: "5",
+            name: "Tech Hub",
+            dti_number: "DTI-901234",
+            status: "registered",
+            owner_id: "user-5"
+          },
+          inspector: {
+            first_name: "Robert",
+            last_name: "Chen"
+          }
+        }
       ];
-      setUpcomingInspections(mockUpcomingInspections);
+      
+      // Get recent applications (last 5)
+      setRecentApplications(mockApplications.slice(0, 5));
+      
+      // Mock upcoming inspections
+      const mockInspections: InspectionAppointment[] = [
+        {
+          id: "1",
+          establishment: "XYZ Mall",
+          inspector: "Robert Chen",
+          date: "2023-05-20",
+          time: "09:00 AM",
+          type: "FSIC (Occupancy)"
+        },
+        {
+          id: "2",
+          establishment: "Grand Hotel",
+          inspector: "Sarah Williams",
+          date: "2023-05-18",
+          time: "02:00 PM",
+          type: "FSIC (Business)"
+        },
+        {
+          id: "3",
+          establishment: "City Supermarket",
+          inspector: "James Wilson",
+          date: "2023-05-22",
+          time: "10:30 AM",
+          type: "FSIC (Business)"
+        },
+        {
+          id: "4",
+          establishment: "Downtown Apartments",
+          inspector: "Robert Chen",
+          date: "2023-05-23",
+          time: "01:00 PM",
+          type: "FSIC (Occupancy)"
+        }
+      ];
+      setUpcomingInspections(mockInspections);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch dashboard data.",
-        variant: "destructive",
-      });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const getTimeAgo = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffMins < 60) {
-      return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
-    } else if (diffHours < 24) {
-      return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
-    } else {
-      return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
-    }
-  };
-
-  const formatInspectionDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    // Get day of week abbreviation
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const dayName = days[date.getDay()];
-    
-    if (date.toDateString() === today.toDateString()) {
-      return "Today";
-    } else if (date.toDateString() === tomorrow.toDateString()) {
-      return "Tomorrow";
-    } else {
-      return dayName;
+  // Helper function to get badge color based on status
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'secondary';
+      case 'for_inspection':
+        return 'warning';
+      case 'inspected':
+        return 'default';
+      case 'approved':
+        return 'success';
+      case 'rejected':
+        return 'destructive';
+      default:
+        return 'outline';
     }
   };
 
@@ -198,7 +250,7 @@ const AdminHome = () => {
       <div>
         <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
         <p className="text-muted-foreground">
-          Welcome to the FireInspect admin dashboard.
+          Welcome to your admin dashboard.
         </p>
       </div>
       
@@ -213,7 +265,7 @@ const AdminHome = () => {
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalUsers}</div>
             <p className="text-xs text-muted-foreground">
-              +12% from last month
+              Fire inspectors and business owners
             </p>
           </CardContent>
         </Card>
@@ -228,7 +280,7 @@ const AdminHome = () => {
           <CardContent>
             <div className="text-2xl font-bold">{stats.registeredEstablishments}</div>
             <p className="text-xs text-muted-foreground">
-              +5% from last month
+              Active business establishments
             </p>
           </CardContent>
         </Card>
@@ -243,7 +295,7 @@ const AdminHome = () => {
           <CardContent>
             <div className="text-2xl font-bold">{stats.pendingApplications}</div>
             <p className="text-xs text-muted-foreground">
-              -2% from last month
+              Applications awaiting review
             </p>
           </CardContent>
         </Card>
@@ -251,81 +303,138 @@ const AdminHome = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Requiring Attention
+              Upcoming Inspections
             </CardTitle>
-            <AlertCircle className="h-4 w-4 text-fire" />
+            <CalendarCheck className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.requireAttention}</div>
-            <p className="text-xs text-fire">
-              +3 from yesterday
+            <div className="text-2xl font-bold">{stats.upcomingInspections}</div>
+            <p className="text-xs text-muted-foreground">
+              Scheduled for the next 7 days
             </p>
           </CardContent>
         </Card>
       </div>
       
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="col-span-2">
+      <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+        <Card className="col-span-1">
           <CardHeader>
             <CardTitle>Recent Applications</CardTitle>
             <CardDescription>
-              Latest applications submitted for approval
+              The most recent applications from business owners
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {recentApplications.map(app => (
-                <div key={app.id} className="flex items-center">
-                  <div className={`w-2 h-2 rounded-full mr-2 ${
-                    app.status === 'pending' ? 'bg-yellow-500' :
-                    app.status === 'for-inspection' ? 'bg-blue-500' :
-                    app.status === 'inspected' ? 'bg-purple-500' :
-                    app.status === 'approved' ? 'bg-green-500' : 'bg-red-500'
-                  }`}></div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{app.establishment.name} - {
-                      app.application_type === 'fsec' ? 'FSEC Application' :
-                      app.application_type === 'fsic_occupancy' ? 'FSIC (Occupancy)' : 'FSIC (Business)'
-                    }</p>
-                    <p className="text-xs text-muted-foreground">Submitted {getTimeAgo(app.created_at)}</p>
-                  </div>
-                  <div className="text-xs text-muted-foreground">{
-                    app.status === 'pending' ? 'Pending Review' :
-                    app.status === 'for-inspection' ? 'Inspector Assigned' :
-                    app.status === 'inspected' ? 'Inspection Complete' :
-                    app.status === 'approved' ? 'Approved' : 'Rejected'
-                  }</div>
-                </div>
-              ))}
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Establishment</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {recentApplications.map((app) => (
+                  <TableRow key={app.id}>
+                    <TableCell className="font-medium">
+                      {app.establishment?.name || "Unknown"}
+                    </TableCell>
+                    <TableCell>
+                      {app.application_type === 'fsec' 
+                        ? 'FSEC' 
+                        : app.application_type === 'fsic_occupancy' 
+                        ? 'FSIC (Occupancy)' 
+                        : 'FSIC (Business)'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={getStatusBadgeVariant(app.status)}
+                        className={app.priority ? "ml-1" : ""}
+                      >
+                        {app.status === 'pending' 
+                          ? 'Pending' 
+                          : app.status === 'for_inspection' 
+                          ? 'For Inspection' 
+                          : app.status === 'inspected'
+                          ? 'Inspected'
+                          : app.status === 'approved'
+                          ? 'Approved'
+                          : 'Rejected'}
+                        {app.priority && <span className="ml-1">★</span>}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{app.application_date}</TableCell>
+                    <TableCell>
+                      <Button variant="outline" size="sm" asChild>
+                        <Link to={`/dashboard/admin/applications/${app.id}`}>
+                          <Eye className="h-4 w-4 mr-1" />
+                          View
+                        </Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <div className="mt-4 flex justify-end">
+              <Button asChild variant="outline" size="sm">
+                <Link to="/dashboard/admin/applications">
+                  View all applications
+                </Link>
+              </Button>
             </div>
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="col-span-1">
           <CardHeader>
             <CardTitle>Upcoming Inspections</CardTitle>
             <CardDescription>
-              Scheduled inspections for this week
+              Inspections scheduled in the next 7 days
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {upcomingInspections.map(inspection => (
-                <div key={inspection.id} className={`border-l-2 pl-3 ${
-                  inspection.priority ? 'border-fire' : 'border-blue-500'
-                }`}>
-                  <p className="text-sm font-medium">
-                    {inspection.establishment.name}
-                    {inspection.priority && <span className="ml-2 text-fire text-xs">★ Priority</span>}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatInspectionDate(inspection.inspection_date || '')}, {inspection.application_time}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Inspector: {inspection.inspector?.first_name} {inspection.inspector?.last_name}
-                  </p>
-                </div>
-              ))}
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Establishment</TableHead>
+                  <TableHead>Inspector</TableHead>
+                  <TableHead>Date & Time</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {upcomingInspections.map((inspection) => (
+                  <TableRow key={inspection.id}>
+                    <TableCell className="font-medium">
+                      {inspection.establishment}
+                    </TableCell>
+                    <TableCell>
+                      {inspection.inspector}
+                    </TableCell>
+                    <TableCell>
+                      {inspection.date} at {inspection.time}
+                    </TableCell>
+                    <TableCell>{inspection.type}</TableCell>
+                    <TableCell>
+                      <Button variant="outline" size="sm">
+                        <Calendar className="h-4 w-4 mr-1" />
+                        Calendar
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <div className="mt-4 flex justify-end">
+              <Button asChild variant="outline" size="sm">
+                <Link to="/dashboard/admin/calendar">
+                  View full calendar
+                </Link>
+              </Button>
             </div>
           </CardContent>
         </Card>
