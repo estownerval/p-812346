@@ -33,8 +33,8 @@ interface ApplicationView {
   date: string;
   time: string;
   status: "pending" | "for_inspection" | "inspected" | "approved" | "rejected";
-  inspector?: string;
   inspectorId?: string;
+  inspector?: string;
   inspectionDate?: string;
   inspectionTime?: string;
   priority?: boolean;
@@ -313,7 +313,7 @@ const AdminApplications = () => {
         app.id === applicationId ? 
           {
             ...app,
-            status: "for_inspection",
+            status: "for_inspection" as const,
             inspectorId,
             inspector: inspector ? `${inspector.first_name} ${inspector.last_name}` : "Unknown",
             inspectionDate,

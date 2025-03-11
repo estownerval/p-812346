@@ -242,7 +242,7 @@ const AdminEstablishments = () => {
       // For now, we'll update the local state
       const updatedEstablishments = establishments.map(est => 
         est.id === establishmentId ? 
-          { ...est, status: type === "approve" ? "registered" : "rejected" } : 
+          { ...est, status: type === "approve" ? "registered" as const : "rejected" as const } : 
           est
       );
       
