@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,10 +16,17 @@ interface Establishment {
 
 interface Application {
   id: string;
+  establishment_id: string;
   application_type: string;
   status: string;
   application_date: string;
-  establishment: Establishment;
+  application_time: string;
+  inspector_id?: string;
+  inspection_date?: string;
+  inspection_time?: string;
+  rejection_reason?: string;
+  priority?: boolean;
+  establishment?: Establishment;
 }
 
 const OwnerHome = () => {
@@ -41,15 +47,17 @@ const OwnerHome = () => {
   const fetchDashboardData = async () => {
     setIsLoading(true);
     try {
-      // Fetch establishments
       const establishmentsData = await getEstablishments();
       setEstablishments(establishmentsData);
       
-      // Fetch applications
       const applicationsData = await getApplications();
-      setApplications(applicationsData);
       
-      // Calculate stats
+      const processedApplications = applicationsData.map(app => ({
+        ...app
+      }));
+      
+      setApplications(processedApplications);
+      
       const registeredCount = establishmentsData.filter(est => est.status === "registered").length;
       const unregisteredCount = establishmentsData.filter(est => est.status === "unregistered").length;
       

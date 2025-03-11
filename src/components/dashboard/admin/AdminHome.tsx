@@ -28,7 +28,7 @@ interface Application {
   establishment: {
     name: string;
     dti_number: string;
-  };
+  } | null;
   inspector: {
     first_name: string;
     last_name: string;
@@ -126,7 +126,15 @@ const AdminHome = () => {
         .limit(5);
       
       if (recentAppsError) throw recentAppsError;
-      setRecentApplications(recentApps || []);
+      
+      // Process data to ensure it matches our Application type
+      const processedRecentApps: Application[] = recentApps?.map(app => ({
+        ...app,
+        establishment: app.establishment && typeof app.establishment !== 'string' ? app.establishment : null,
+        inspector: app.inspector && typeof app.inspector !== 'string' ? app.inspector : null
+      })) || [];
+      
+      setRecentApplications(processedRecentApps);
 
       // Fetch upcoming inspections
       const { data: upcomingInspectionsData, error: upcomingInspectionsError } = await supabase
@@ -142,7 +150,15 @@ const AdminHome = () => {
         .limit(5);
       
       if (upcomingInspectionsError) throw upcomingInspectionsError;
-      setUpcomingInspections(upcomingInspectionsData || []);
+      
+      // Process data to ensure it matches our Application type
+      const processedUpcomingInspections: Application[] = upcomingInspectionsData?.map(app => ({
+        ...app,
+        establishment: app.establishment && typeof app.establishment !== 'string' ? app.establishment : null,
+        inspector: app.inspector && typeof app.inspector !== 'string' ? app.inspector : null
+      })) || [];
+      
+      setUpcomingInspections(processedUpcomingInspections);
 
     } catch (error: any) {
       console.error("Error fetching dashboard data:", error);

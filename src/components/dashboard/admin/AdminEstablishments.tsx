@@ -33,7 +33,7 @@ interface Establishment {
     first_name: string;
     last_name: string;
     email: string;
-  };
+  } | null;
 }
 
 const AdminEstablishments = () => {
@@ -67,12 +67,18 @@ const AdminEstablishments = () => {
       if (error) throw error;
 
       if (data) {
+        // Process data to ensure it matches our Establishment type
+        const processedData: Establishment[] = data.map(item => ({
+          ...item,
+          owner: item.owner && typeof item.owner !== 'string' ? item.owner : null
+        }));
+
         // Filter establishments by status
-        setPendingRegistrations(data.filter(est => 
+        setPendingRegistrations(processedData.filter(est => 
           est.status === "unregistered" && est.address !== null
         ));
-        setApprovedEstablishments(data.filter(est => est.status === "registered"));
-        setRejectedRegistrations(data.filter(est => est.status === "rejected"));
+        setApprovedEstablishments(processedData.filter(est => est.status === "registered"));
+        setRejectedRegistrations(processedData.filter(est => est.status === "rejected"));
       }
     } catch (error: any) {
       toast.error(`Error fetching establishments: ${error.message}`);
